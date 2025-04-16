@@ -1,0 +1,15 @@
+[package]
+name = "rdict"
+version = "0.1.0"
+authors = ["Guanran Wang <guanran928@outlook.com>"]
+edition = "2024"
+repository = "https://github.com/Guanran928/rdict"
+license = "MIT"
+
+[dependencies]
+clap = { version = "4.5.36", features = ["derive"] }
+clap-stdin = "0.6.0"
+owo-colors = "4.2.0"
+regex = "1.11.1"
+reqwest = { version = "0.12.15", features = ["blocking", "json", "rustls-tls"], default-features = false }
+scraper = "0.23.1"
