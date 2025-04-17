@@ -22,7 +22,7 @@ fn main() {
             if is_cjk {
                 match to_english(&html) {
                     Ok(result) => {
-                        println!("\n{}", result.translations.join(", ").green());
+                        println!("\n{}", result.translations.join("; ").green());
 
                         for (i, example) in result.example_sentenses.iter().enumerate() {
                             println!(
@@ -52,12 +52,14 @@ fn main() {
                             println!(
                                 "{}",
                                 format!(
-                                    "      {} {}\n\n",
+                                    "      {} {}",
                                     translation.english_word_type, translation.chinese_translation
                                 )
                                 .green()
                             )
                         }
+
+                        println!("\n");
 
                         for (i, example) in result.example_sentenses.iter().enumerate() {
                             println!(
