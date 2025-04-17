@@ -4,10 +4,12 @@ use crate::args::Args;
 use crate::parse::to_chinese;
 use crate::parse::to_english;
 use clap::Parser;
+use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use regex::Regex;
 use reqwest::blocking::Client;
 use std::collections::HashMap;
+use std::time::Duration;
 
 fn main() {
     let cli = Args::parse();
@@ -84,6 +86,16 @@ fn fetch_word_html(word: &str) -> Result<String, reqwest::Error> {
     let mut params = HashMap::new();
     params.insert("word", word);
     params.insert("lang", "en");
+
+    let spinner = ProgressBar::new_spinner();
+    spinner.set_message("Fetching data...");
+    spinner.enable_steady_tick(Duration::from_millis(100));
+    spinner.set_style(
+        ProgressStyle::default_spinner()
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+            .template("{spinner} {msg}")
+            .unwrap(),
+    );
 
     let response = client
         .get(base_url)
