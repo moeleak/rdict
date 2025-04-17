@@ -1,23 +1,42 @@
 mod args;
 mod parse;
 use crate::args::Args;
-use crate::parse::to_chinese;
-use crate::parse::to_english;
+use crate::parse::{to_chinese, to_english};
+use atty::Stream;
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use regex::Regex;
 use reqwest::blocking::Client;
+use rustyline::DefaultEditor;
 use std::collections::HashMap;
+use std::io::{self, Read};
 use std::time::Duration;
 
 fn main() {
     let cli = Args::parse();
-    let word: String = cli.word.to_string();
+    let stdin_is_piped = !atty::is(Stream::Stdin);
 
-    match fetch_word_html(&word) {
+    if let Some(word) = cli.word {
+        output_results(&word);
+    } else if stdin_is_piped {
+        let mut buffer = String::new();
+        io::stdin().read_to_string(&mut buffer).unwrap();
+        let word = buffer.trim();
+        if !word.is_empty() {
+            output_results(word);
+        } else {
+            let _ = interactive_mode();
+        }
+    } else {
+        let _ = interactive_mode();
+    }
+}
+
+fn output_results(word: &str) {
+    match fetch_word_html(word) {
         Ok(html) => {
-            let is_cjk = contains_cjk(&word);
+            let is_cjk = contains_cjk(word);
 
             if is_cjk {
                 match to_english(&html) {
@@ -79,6 +98,24 @@ fn main() {
             eprintln!("Error fetching HTML: {}", e);
         }
     };
+}
+
+fn interactive_mode() -> rustyline::Result<()> {
+    let mut rl = DefaultEditor::new()?;
+    loop {
+        let readline = rl.readline(format!("{}# ", "[rdict]".green()).as_str());
+        match readline {
+            Ok(line) => {
+                rl.add_history_entry(line.as_str())?;
+                output_results(line.trim());
+            }
+            Err(err) => {
+                println!("Error: {:?}", err);
+                break;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn fetch_word_html(word: &str) -> Result<String, reqwest::Error> {
