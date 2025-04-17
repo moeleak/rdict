@@ -7,7 +7,6 @@ repository = "https://github.com/Guanran928/rdict"
 license = "MIT"
 
 [dependencies]
-atty = "0.2.14"
 clap = { version = "4.5.36", features = ["derive"] }
 indicatif = "0.17.11"
 owo-colors = "4.2.0"

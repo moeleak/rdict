@@ -2,7 +2,6 @@ mod args;
 mod parse;
 use crate::args::Args;
 use crate::parse::{to_chinese, to_english};
-use atty::Stream;
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
@@ -10,12 +9,12 @@ use regex::Regex;
 use reqwest::blocking::Client;
 use rustyline::DefaultEditor;
 use std::collections::HashMap;
-use std::io::{self, Read};
+use std::io::{self, IsTerminal, Read};
 use std::time::Duration;
 
 fn main() {
     let cli = Args::parse();
-    let stdin_is_piped = !atty::is(Stream::Stdin);
+    let stdin_is_piped = !io::stdin().is_terminal();
 
     if let Some(word) = cli.word {
         output_results(&word);
@@ -26,7 +25,7 @@ fn main() {
         if !word.is_empty() {
             output_results(word);
         } else {
-            let _ = interactive_mode();
+            eprintln!("No word specified.")
         }
     } else {
         let _ = interactive_mode();
