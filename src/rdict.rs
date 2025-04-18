@@ -234,3 +234,67 @@ impl Rdict {
         re.is_match(word)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assert_cmd::Command;
+    use mockito::{Matcher, Server};
+    use predicates::prelude::*;
+
+    #[test]
+    fn test_contains_cjk_with_cjk() {
+        assert!(Rdict::contains_cjk("你好"));
+    }
+
+    #[test]
+    fn test_contains_cjk_without_cjk() {
+        assert!(!Rdict::contains_cjk("hello"));
+    }
+
+    #[test]
+    fn test_contains_cjk_mixed_input() {
+        assert!(Rdict::contains_cjk("hello你好"));
+    }
+
+    #[test]
+    fn test_contains_cjk_empty() {
+        assert!(!Rdict::contains_cjk(""));
+    }
+
+    #[test]
+    fn test_cmd_stdin_empty() -> Result<(), Box<dyn std::error::Error>> {
+        let mut cmd = Command::cargo_bin("rdict")?;
+        cmd.write_stdin("")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("No word specified."));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_fetch_word_html_success_with_mock_server() {
+        let mut server = Server::new();
+
+        let mock = server
+            .mock("GET", "/result")
+            .match_query(Matcher::AllOf(vec![
+                Matcher::UrlEncoded("word".into(), "hello".into()),
+                Matcher::UrlEncoded("lang".into(), "en".into()),
+            ]))
+            .with_status(200)
+            .with_body(include_str!("fixtures/hello_response.html"))
+            .create();
+
+        let rdict = Rdict {
+            client: Client::new(),
+            base_url: server.url(),
+            conn: None,
+        };
+
+        let html = rdict.fetch_word_html("hello").unwrap();
+        assert!(html.contains("Hello"));
+        mock.assert();
+    }
+}
