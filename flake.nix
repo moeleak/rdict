@@ -21,6 +21,8 @@
             rustfmt
           ];
         };
+
+        packages.default = pkgs.callPackage ./package.nix { };
       }
     );
 }
