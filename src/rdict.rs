@@ -107,15 +107,23 @@ impl Rdict {
             }
         }
 
-        println!("\n{}", result.translations.join("; ").green());
+        let mut output = "\n".to_string();
+
+        output += &result.translations.join("; ").green().to_string();
+        output += "\n\n";
 
         for (i, example) in result.example_sentenses.iter().enumerate() {
-            println!(
-                "{}",
-                format!("  {}.{}", i + 1, example.english_sentense).green()
-            );
-            println!("    {}", example.chinese_sentense.magenta());
+            output += &format!("  {}.{}", i + 1, example.english_sentense)
+                .green()
+                .to_string();
+            output += "\n";
+            output += &format!("    {}", example.chinese_sentense)
+                .magenta()
+                .to_string();
+            output += "\n";
         }
+
+        println!("{}", output);
     }
 
     pub fn output_chinese(&self, word: &str, result: ToChinese, save_to_cache: bool) {
@@ -137,35 +145,37 @@ impl Rdict {
             }
         }
 
-        println!(
-            "{}",
-            format!(
-                "\n    英：{} 美：{}\n\n",
-                result.phonetic.uk, result.phonetic.us
-            )
+        let mut output = "\n".to_string();
+
+        output += &format!("    英：{} 美：{}", result.phonetic.uk, result.phonetic.us)
             .green()
-        );
+            .to_string();
+        output += "\n\n";
 
         for translation in result.translations {
-            println!(
-                "{}",
-                format!(
-                    "      {} {}",
-                    translation.english_word_type, translation.chinese_translation
-                )
-                .green()
-            );
+            output += &format!(
+                "      {} {}",
+                translation.english_word_type, translation.chinese_translation
+            )
+            .green()
+            .to_string();
+            output += "\n";
         }
-
-        println!("\n");
+        output += "\n";
 
         for (i, example) in result.example_sentenses.iter().enumerate() {
-            println!(
-                "{}",
-                format!("  {}.{}", i + 1, example.english_sentense).green()
-            );
-            println!("    {}", example.chinese_sentense.magenta());
+            output += &format!("  {}.{}", i + 1, example.english_sentense)
+                .green()
+                .to_string();
+            output += "\n";
+
+            output += &format!("    {}", example.chinese_sentense)
+                .magenta()
+                .to_string();
+            output += "\n";
         }
+
+        println!("{}", output);
     }
 
     pub fn fetch_word_html(&self, word: &str) -> Result<String, reqwest::Error> {
