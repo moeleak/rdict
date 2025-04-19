@@ -20,16 +20,16 @@ fn main() {
             let mut buffer = String::new();
             io::stdin().read_to_string(&mut buffer).unwrap();
             let word = buffer.trim();
-            if !word.is_empty() {
-                rdict.output_results(word);
-            } else {
+            if word.is_empty() {
                 eprintln!("No word specified.");
                 process::exit(1);
+            } else {
+                rdict.output_results(word);
             }
         }
         _ => {
             if let Err(e) = rdict.interactive_mode() {
-                eprintln!("Interactive mode failed: {:?}", e);
+                eprintln!("Interactive mode failed: {e:?}");
                 process::exit(1);
             }
         }

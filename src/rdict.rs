@@ -40,9 +40,9 @@ impl Rdict {
                             }
                         }
                         Err(e) => {
-                            eprintln!("Error fetching HTML: {}", e);
+                            eprintln!("Error fetching HTML: {e}");
                         }
-                    };
+                    }
                 } else {
                     match to_chinese(&html) {
                         Ok(result) => {
@@ -64,7 +64,7 @@ impl Rdict {
                                         translation.chinese_translation
                                     )
                                     .green()
-                                )
+                                );
                             }
 
                             println!("\n");
@@ -78,15 +78,15 @@ impl Rdict {
                             }
                         }
                         Err(e) => {
-                            eprintln!("Error fetching HTML: {}", e);
+                            eprintln!("Error fetching HTML: {e}");
                         }
-                    };
+                    }
                 }
             }
             Err(e) => {
-                eprintln!("Error fetching HTML: {}", e);
+                eprintln!("Error fetching HTML: {e}");
             }
-        };
+        }
     }
 
     pub fn interactive_mode(&self) -> rustyline::Result<()> {
@@ -100,7 +100,7 @@ impl Rdict {
                     Self::output_results(self, word);
                 }
                 Err(err) => {
-                    println!("Error: {:?}", err);
+                    println!("Error: {err:?}");
                     break;
                 }
             }

@@ -73,8 +73,8 @@ pub fn to_chinese(html: &str) -> Result<ToChinese, String> {
 
         if !chinese_translation.is_empty() || !english_word_type.is_empty() {
             result.translations.push(ToChineseTranslation {
-                chinese_translation,
                 english_word_type,
+                chinese_translation,
             });
         }
     }
