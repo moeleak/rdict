@@ -1,36 +1,38 @@
 use scraper::{Html, Selector};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Phonetic {
     pub uk: String,
     pub us: String,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ExampleSentense {
     pub english_sentense: String,
     pub chinese_sentense: String,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ToChineseTranslation {
     pub english_word_type: String,
     pub chinese_translation: String,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ToChinese {
     pub phonetic: Phonetic,
     pub translations: Vec<ToChineseTranslation>,
     pub example_sentenses: Vec<ExampleSentense>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ToEnglish {
     pub translations: Vec<String>,
     pub example_sentenses: Vec<ExampleSentense>,
 }
 
+/// Parses English, returns Chinese
 pub fn to_chinese(html: &str) -> Result<ToChinese, String> {
     let document = Html::parse_document(html);
     let mut result = ToChinese::default();
@@ -73,8 +75,8 @@ pub fn to_chinese(html: &str) -> Result<ToChinese, String> {
 
         if !chinese_translation.is_empty() || !english_word_type.is_empty() {
             result.translations.push(ToChineseTranslation {
-                chinese_translation,
                 english_word_type,
+                chinese_translation,
             });
         }
     }
@@ -97,11 +99,10 @@ pub fn to_chinese(html: &str) -> Result<ToChinese, String> {
             .map(|e| e.text().collect::<String>().trim().to_string())
             .unwrap_or_default();
 
-
         if !english_sentense.is_empty() || !chinese_sentense.is_empty() {
             result.example_sentenses.push(ExampleSentense {
                 english_sentense,
-                chinese_sentense
+                chinese_sentense,
             });
         }
     }
@@ -113,6 +114,7 @@ pub fn to_chinese(html: &str) -> Result<ToChinese, String> {
     Ok(result)
 }
 
+/// Parses Chinese, returns English
 pub fn to_english(html: &str) -> Result<ToEnglish, String> {
     let document = Html::parse_document(html);
     let mut result = ToEnglish::default();
@@ -143,7 +145,6 @@ pub fn to_english(html: &str) -> Result<ToEnglish, String> {
             .next()
             .map(|el| el.text().collect::<String>().trim().to_string())
             .unwrap_or_default();
-
 
         if !english_sentense.is_empty() || !chinese_sentense.is_empty() {
             result.example_sentenses.push(ExampleSentense {
