@@ -37,6 +37,7 @@ impl Rdict {
                         let data: String = row.get(0).unwrap();
                         if let Ok(result) = serde_json::from_str::<ToEnglish>(&data) {
                             self.output_english(word, result, false);
+                            println!("\n    {}", format!("[ {word} ] From cache").blue());
                             return;
                         }
                     }
@@ -50,13 +51,13 @@ impl Rdict {
                         let data: String = row.get(0).unwrap();
                         if let Ok(result) = serde_json::from_str::<ToChinese>(&data) {
                             self.output_chinese(word, result, false);
+                            println!("\n    {}", format!("[ {word} ] From cache").blue());
                             return;
                         }
                     }
                 }
             }
         }
-
 
         // If not found in cache, fetch from the web
         let word_html = self.fetch_word_html(word);
