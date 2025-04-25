@@ -8,28 +8,28 @@ pub struct Phonetic {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
-pub struct ExampleSentense {
-    pub english_sentense: String,
-    pub chinese_sentense: String,
+pub struct ExampleSentence {
+    pub english_sentence: String,
+    pub chinese_sentence: String,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ToChineseTranslation {
     pub english_word_type: String,
-    pub chinese_translation: String,
+    pub chinese_translation: Vec<String>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ToChinese {
     pub phonetic: Phonetic,
     pub translations: Vec<ToChineseTranslation>,
-    pub example_sentenses: Vec<ExampleSentense>,
+    pub example_sentenses: Vec<ExampleSentence>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ToEnglish {
     pub translations: Vec<String>,
-    pub example_sentenses: Vec<ExampleSentense>,
+    pub example_sentenses: Vec<ExampleSentence>,
 }
 
 /// Parses English, returns Chinese
@@ -49,9 +49,9 @@ pub fn to_chinese(html: &str) -> Result<ToChinese, String> {
             .unwrap_or_default();
 
         if i == 0 {
-            result.phonetic.uk = text;
+            result.phonetic.uk = text.trim_matches(|c| c == '/').trim().to_string();
         } else if i == 1 {
-            result.phonetic.us = text;
+            result.phonetic.us = text.trim_matches(|c| c == '/').trim().to_string();
         }
     }
 
@@ -61,10 +61,17 @@ pub fn to_chinese(html: &str) -> Result<ToChinese, String> {
     let pos_selector = Selector::parse(".pos").unwrap();
 
     for element in document.select(&word_exp_selector) {
-        let chinese_translation = element
+        let chinese_translation: Vec<String> = element
             .select(&trans_selector)
             .next()
-            .map(|e| e.text().collect::<String>().trim().to_string())
+            .map(|e| {
+                e.text()
+                    .collect::<String>()
+                    .trim()
+                    .split('；')
+                    .map(|s| s.trim().to_string()) // trim & convert to String
+                    .collect()
+            })
             .unwrap_or_default();
 
         let english_word_type = element
@@ -87,22 +94,22 @@ pub fn to_chinese(html: &str) -> Result<ToChinese, String> {
     let sen_ch_selector = Selector::parse(".sen-ch").unwrap();
 
     for element in document.select(&example_selector) {
-        let english_sentense = element
+        let english_sentence = element
             .select(&sen_eng_selector)
             .next()
             .map(|e| e.text().collect::<String>().trim().to_string())
             .unwrap_or_default();
 
-        let chinese_sentense = element
+        let chinese_sentence = element
             .select(&sen_ch_selector)
             .next()
             .map(|e| e.text().collect::<String>().trim().to_string())
             .unwrap_or_default();
 
-        if !english_sentense.is_empty() || !chinese_sentense.is_empty() {
-            result.example_sentenses.push(ExampleSentense {
-                english_sentense,
-                chinese_sentense,
+        if !english_sentence.is_empty() || !chinese_sentence.is_empty() {
+            result.example_sentenses.push(ExampleSentence {
+                english_sentence,
+                chinese_sentence,
             });
         }
     }
@@ -134,22 +141,22 @@ pub fn to_english(html: &str) -> Result<ToEnglish, String> {
     let sen_ch_selector = Selector::parse(".sen-ch").unwrap();
 
     for element in document.select(&example_selector) {
-        let english_sentense = element
+        let english_sentence = element
             .select(&sen_eng_selector)
             .next()
             .map(|el| el.text().collect::<String>().trim().to_string())
             .unwrap_or_default();
 
-        let chinese_sentense = element
+        let chinese_sentence = element
             .select(&sen_ch_selector)
             .next()
             .map(|el| el.text().collect::<String>().trim().to_string())
             .unwrap_or_default();
 
-        if !english_sentense.is_empty() || !chinese_sentense.is_empty() {
-            result.example_sentenses.push(ExampleSentense {
-                english_sentense,
-                chinese_sentense,
+        if !english_sentence.is_empty() || !chinese_sentence.is_empty() {
+            result.example_sentenses.push(ExampleSentence {
+                english_sentence,
+                chinese_sentence,
             });
         }
     }

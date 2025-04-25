@@ -5,6 +5,7 @@ use regex::Regex;
 use reqwest::blocking::Client;
 use rustyline::DefaultEditor;
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::time::Duration;
 
 pub struct Rdict {
@@ -37,7 +38,7 @@ impl Rdict {
                         let data: String = row.get(0).unwrap();
                         if let Ok(result) = serde_json::from_str::<ToEnglish>(&data) {
                             self.output_english(word, result, false);
-                            println!("\n    {}", format!("[ {word} ] From cache").blue());
+                            println!("\n  {}", format!("[ {word} ] From cache").bright_black());
                             return;
                         }
                     }
@@ -51,7 +52,7 @@ impl Rdict {
                         let data: String = row.get(0).unwrap();
                         if let Ok(result) = serde_json::from_str::<ToChinese>(&data) {
                             self.output_chinese(word, result, false);
-                            println!("\n    {}", format!("[ {word} ] From cache").blue());
+                            println!("\n  {}", format!("[ {word} ] From cache").bright_black());
                             return;
                         }
                     }
@@ -110,21 +111,31 @@ impl Rdict {
 
         let mut output = "\n".to_string();
 
-        output += &result.translations.join("; ").green().to_string();
-        output += "\n\n";
+        output += &"  # Translations\n".bright_black().to_string();
+        output += &result
+            .translations
+            .iter()
+            .fold(String::new(), |mut output, tr| {
+                let _ = writeln!(output, "  * {}", tr.green());
+                output
+            });
+        output += "\n";
 
-        for (i, example) in result.example_sentenses.iter().enumerate() {
-            output += &format!("  {}.{}", i + 1, example.english_sentense)
-                .green()
-                .to_string();
-            output += "\n";
-            output += &format!("    {}", example.chinese_sentense)
-                .magenta()
-                .to_string();
-            output += "\n";
-        }
+        output += &"  # Examples\n".bright_black().to_string();
+        output += &result
+            .example_sentenses
+            .iter()
+            .fold(String::new(), |mut output, ex| {
+                let _ = write!(
+                    output,
+                    "  * {}\n    {}\n",
+                    ex.english_sentence.green(),
+                    ex.chinese_sentence.magenta()
+                );
+                output
+            });
 
-        println!("{}", output);
+        print!("{}", output);
     }
 
     pub fn output_chinese(&self, word: &str, result: ToChinese, save_to_cache: bool) {
@@ -148,35 +159,48 @@ impl Rdict {
 
         let mut output = "\n".to_string();
 
-        output += &format!("    英：{} 美：{}", result.phonetic.uk, result.phonetic.us)
-            .green()
-            .to_string();
-        output += "\n\n";
+        output += &"  # Phonetics\n".bright_black().to_string();
+        output += &format!(
+            "  英：[{}]\n  美：[{}]\n\n",
+            result.phonetic.uk.green(),
+            result.phonetic.us.green()
+        )
+        .to_string();
 
-        for translation in result.translations {
-            output += &format!(
-                "      {} {}",
-                translation.english_word_type, translation.chinese_translation
-            )
-            .green()
-            .to_string();
-            output += "\n";
-        }
-        output += "\n";
+        output += &"  # Translations\n".bright_black().to_string();
+        output += &result
+            .translations
+            .iter()
+            .fold(String::new(), |mut output, t| {
+                let _ = write!(
+                    output,
+                    "  [{}]{}\n\n",
+                    t.english_word_type,
+                    t.chinese_translation
+                        .iter()
+                        .fold(String::new(), |mut output, tr| {
+                            let _ = write!(output, "\n  * {}", tr.green());
+                            output
+                        })
+                );
+                output
+            });
 
-        for (i, example) in result.example_sentenses.iter().enumerate() {
-            output += &format!("  {}.{}", i + 1, example.english_sentense)
-                .green()
-                .to_string();
-            output += "\n";
+        output += &"  # Examples\n".bright_black().to_string();
+        output += &result
+            .example_sentenses
+            .iter()
+            .fold(String::new(), |mut output, ex| {
+                let _ = write!(
+                    output,
+                    "  * {}\n    {}\n",
+                    ex.english_sentence.green(),
+                    ex.chinese_sentence.magenta()
+                );
+                output
+            });
 
-            output += &format!("    {}", example.chinese_sentense)
-                .magenta()
-                .to_string();
-            output += "\n";
-        }
-
-        println!("{}", output);
+        print!("{}", output);
     }
 
     pub fn fetch_word_html(&self, word: &str) -> Result<String, reqwest::Error> {
