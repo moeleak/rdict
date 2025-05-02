@@ -38,7 +38,7 @@ impl Rdict {
                         let data: String = row.get(0).unwrap();
                         if let Ok(result) = serde_json::from_str::<ToEnglish>(&data) {
                             self.output_english(word, result, false);
-                            println!("\n  {}", format!("[ {word} ] From cache").bright_black());
+                            println!("  {}\n", format!("[ {word} ] From cache").bright_black());
                             return;
                         }
                     }
@@ -52,7 +52,7 @@ impl Rdict {
                         let data: String = row.get(0).unwrap();
                         if let Ok(result) = serde_json::from_str::<ToChinese>(&data) {
                             self.output_chinese(word, result, false);
-                            println!("\n  {}", format!("[ {word} ] From cache").bright_black());
+                            println!("  {}\n", format!("[ {word} ] From cache").bright_black());
                             return;
                         }
                     }
@@ -111,7 +111,7 @@ impl Rdict {
 
         let mut output = "\n".to_string();
 
-        output += &"  # Translations\n".bright_black().to_string();
+        output += &format!("  {}\n", "# Translations".bright_black());
         output += &result
             .translations
             .iter()
@@ -121,7 +121,7 @@ impl Rdict {
             });
         output += "\n";
 
-        output += &"  # Examples\n".bright_black().to_string();
+        output += &format!("  {}\n", "# Examples".bright_black());
         output += &result
             .example_sentenses
             .iter()
@@ -134,6 +134,7 @@ impl Rdict {
                 );
                 output
             });
+        output += "\n";
 
         print!("{}", output);
     }
@@ -159,7 +160,7 @@ impl Rdict {
 
         let mut output = "\n".to_string();
 
-        output += &"  # Phonetics\n".bright_black().to_string();
+        output += &format!("  {}\n", "# Phonetics".bright_black());
         output += &format!(
             "  英：[{}]\n  美：[{}]\n\n",
             result.phonetic.uk.green(),
@@ -167,7 +168,7 @@ impl Rdict {
         )
         .to_string();
 
-        output += &"  # Translations\n".bright_black().to_string();
+        output += &format!("  {}\n", "# Translations".bright_black());
         output += &result
             .translations
             .iter()
@@ -186,7 +187,7 @@ impl Rdict {
                 output
             });
 
-        output += &"  # Examples\n".bright_black().to_string();
+        output += &format!("  {}\n", "# Examples".bright_black());
         output += &result
             .example_sentenses
             .iter()
@@ -199,6 +200,7 @@ impl Rdict {
                 );
                 output
             });
+        output += "\n";
 
         print!("{}", output);
     }
