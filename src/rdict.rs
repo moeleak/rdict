@@ -242,9 +242,11 @@ impl Rdict {
             let readline = rl.readline(format!("{}# ", "[rdict]".green()).as_str());
             match readline {
                 Ok(line) => {
-                    rl.add_history_entry(line.as_str())?;
-                    let word = line.as_str().trim();
-                    Self::output_results(self, word);
+                    if !line.is_empty() {
+                        rl.add_history_entry(line.as_str())?;
+                        let word = line.as_str().trim();
+                        Self::output_results(self, word);
+                    }
                 }
                 Err(err) => {
                     println!("Error: {err:?}");
