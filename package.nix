@@ -6,7 +6,7 @@ rustPlatform.buildRustPackage {
   src = lib.cleanSource ./.;
 
   useFetchCargoVendor = true;
-  cargoHash = "sha256-8+2IjvYBa2C49LcAycx38tw5DafN43Gnmt5l6+lN5Co=";
+  cargoHash = "sha256-nGHGfpAm73KkEOv5IxZapyAWbhGb4WuH98wxsOWImZY=";
 
   preCheck = ''
     export HOME="$(mktemp -d)"

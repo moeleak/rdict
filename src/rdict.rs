@@ -111,30 +111,34 @@ impl Rdict {
 
         let mut output = "\n".to_string();
 
-        output += &format!("  {}\n", "# Translations".bright_black());
-        output += &result
-            .translations
-            .iter()
-            .fold(String::new(), |mut output, tr| {
-                let _ = writeln!(output, "  * {}", tr.green());
-                output
-            });
-        output += "\n";
+        if !result.translations.is_empty() {
+            output += &format!("  {}\n", "# Translations".bright_black());
+            output += &result
+                .translations
+                .iter()
+                .fold(String::new(), |mut output, tr| {
+                    let _ = writeln!(output, "  * {}", tr.green());
+                    output
+                });
+            output += "\n";
+        }
 
-        output += &format!("  {}\n", "# Examples".bright_black());
-        output += &result
-            .example_sentenses
-            .iter()
-            .fold(String::new(), |mut output, ex| {
-                let _ = write!(
-                    output,
-                    "  * {}\n    {}\n",
-                    ex.english_sentence.green(),
-                    ex.chinese_sentence.magenta()
-                );
-                output
-            });
-        output += "\n";
+        if !result.example_sentenses.is_empty() {
+            output += &format!("  {}\n", "# Examples".bright_black());
+            output += &result
+                .example_sentenses
+                .iter()
+                .fold(String::new(), |mut output, ex| {
+                    let _ = write!(
+                        output,
+                        "  * {}\n    {}\n",
+                        ex.english_sentence.green(),
+                        ex.chinese_sentence.magenta()
+                    );
+                    output
+                });
+            output += "\n";
+        }
 
         print!("{}", output);
     }
@@ -160,55 +164,65 @@ impl Rdict {
 
         let mut output = "\n".to_string();
 
-        output += &format!("  {}\n", "# Phonetics".bright_black());
-        output += &format!(
-            "  英：[{}]\n  美：[{}]\n\n",
-            result.phonetic.uk.green(),
-            result.phonetic.us.green()
-        )
-        .to_string();
+        if !result.phonetic.uk.is_empty() || !result.phonetic.us.is_empty() {
+            output += &format!("  {}\n", "# Phonetics".bright_black());
+            output += &format!(
+                "  英：[{}]\n  美：[{}]\n\n",
+                result.phonetic.uk.green(),
+                result.phonetic.us.green()
+            )
+            .to_string();
+        }
 
-        output += &format!("  {}\n", "# Translations".bright_black());
-        output += &result
-            .translations
-            .iter()
-            .fold(String::new(), |mut output, t| {
-                let _ = write!(
-                    output,
-                    "  [{}]{}\n\n",
-                    t.english_word_type,
-                    t.chinese_translation
-                        .iter()
-                        .fold(String::new(), |mut output, tr| {
-                            let _ = write!(output, "\n  * {}", tr.green());
-                            output
-                        })
-                );
-                output
-            });
+        if !result.translations.is_empty() {
+            output += &format!("  {}\n", "# Translations".bright_black());
+            output += &result
+                .translations
+                .iter()
+                .fold(String::new(), |mut output, t| {
+                    let word_type_display = if t.english_word_type.is_empty() {
+                        String::new()
+                    } else {
+                        format!("[{}]\n", t.english_word_type)
+                    };
 
-        output += &format!("  {}\n", "# Examples".bright_black());
-        output += &result
-            .example_sentenses
-            .iter()
-            .fold(String::new(), |mut output, ex| {
-                let _ = write!(
-                    output,
-                    "  * {}\n    {}\n",
-                    ex.english_sentence.green(),
-                    ex.chinese_sentence.magenta()
-                );
-                output
-            });
-        output += "\n";
+                    let _ = writeln!(
+                        output,
+                        "  {}{}",
+                        word_type_display,
+                        t.chinese_translation
+                            .iter()
+                            .fold(String::new(), |mut output, tr| {
+                                let _ = writeln!(output, "  * {}", tr.green());
+                                output
+                            })
+                    );
+                    output
+                })
+        };
+
+        if !result.example_sentenses.is_empty() {
+            output += &format!("  {}\n", "# Examples".bright_black());
+            output += &result
+                .example_sentenses
+                .iter()
+                .fold(String::new(), |mut output, ex| {
+                    let _ = write!(
+                        output,
+                        "  * {}\n    {}\n",
+                        ex.english_sentence.green(),
+                        ex.chinese_sentence.magenta()
+                    );
+                    output
+                });
+            output += "\n";
+        }
 
         print!("{}", output);
     }
 
     pub fn fetch_word_html(&self, word: &str) -> Result<String, reqwest::Error> {
-        let mut params = HashMap::new();
-        params.insert("word", word);
-        params.insert("lang", "en");
+        let params = HashMap::from([("word", word), ("lang", "en")]);
 
         let spinner = ProgressBar::new_spinner();
         spinner.set_message("Fetching data...");
