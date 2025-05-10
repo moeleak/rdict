@@ -1,5 +1,7 @@
 name: Clippy check
 
+permissions: {}
+
 on:
   pull_request:
     types:
@@ -20,5 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features
