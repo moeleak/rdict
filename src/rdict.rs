@@ -1,4 +1,5 @@
 use crate::parse::{ToChinese, ToEnglish, to_chinese, to_english};
+use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use regex::Regex;
@@ -23,7 +24,7 @@ impl Rdict {
         }
     }
 
-    pub fn output_results(&self, word: &str) {
+    pub fn output_results(&self, word: &str) -> Result<()> {
         let is_cjk = Self::contains_cjk(word);
 
         // Retrieve from cache if available
@@ -37,9 +38,9 @@ impl Rdict {
                     if let Ok(Some(row)) = rows.next() {
                         let data: String = row.get(0).unwrap();
                         if let Ok(result) = serde_json::from_str::<ToEnglish>(&data) {
-                            self.output_english(word, result, false);
+                            self.output_english(word, result, false)?;
                             println!("  {}\n", format!("[ {word} ] From cache").bright_black());
-                            return;
+                            return Ok(());
                         }
                     }
                 }
@@ -51,9 +52,9 @@ impl Rdict {
                     if let Some(row) = rows.next().unwrap() {
                         let data: String = row.get(0).unwrap();
                         if let Ok(result) = serde_json::from_str::<ToChinese>(&data) {
-                            self.output_chinese(word, result, false);
+                            self.output_chinese(word, result, false)?;
                             println!("  {}\n", format!("[ {word} ] From cache").bright_black());
-                            return;
+                            return Ok(());
                         }
                     }
                 }
@@ -61,52 +62,28 @@ impl Rdict {
         }
 
         // If not found in cache, fetch from the web
-        let word_html = self.fetch_word_html(word);
-        match word_html {
-            Ok(html) => {
-                if is_cjk {
-                    match to_english(&html) {
-                        Ok(result) => {
-                            self.output_english(word, result, true);
-                        }
-                        Err(e) => {
-                            eprintln!("Error: {e}");
-                        }
-                    }
-                } else {
-                    match to_chinese(&html) {
-                        Ok(result) => {
-                            self.output_chinese(word, result, true);
-                        }
-                        Err(e) => {
-                            eprintln!("Error: {e}");
-                        }
-                    }
-                }
-            }
-            Err(e) => {
-                eprintln!("Error fetching HTML: {e}");
-            }
-        }
+        let html = self.fetch_word_html(word).context("Error fetching HTML")?;
+        if is_cjk {
+            let result = to_english(&html)?;
+            self.output_english(word, result, true)?;
+        } else {
+            let result = to_chinese(&html)?;
+            self.output_chinese(word, result, true)?;
+        };
+
+        Ok(())
     }
 
-    pub fn output_english(&self, word: &str, result: ToEnglish, save_to_cache: bool) {
+    pub fn output_english(&self, word: &str, result: ToEnglish, save_to_cache: bool) -> Result<()> {
         if save_to_cache {
             if let Some(conn) = &self.conn {
-                match serde_json::to_string(&result) {
-                    Ok(data) => {
-                        if let Err(e) = conn.execute(
+                let data = serde_json::to_string(&result).context("Error serializing result")?;
+                conn.execute(
                     "INSERT OR REPLACE INTO to_english_results (word, data) VALUES (?1, ?2)",
                     rusqlite::params![word, data],
-                ) {
-                    eprintln!("Error saving to cache: {e}");
-                }
-                    }
-                    Err(e) => {
-                        eprintln!("Error serializing result: {e}");
-                    }
-                }
-            }
+                )
+                .context("Error saving to cache")?;
+            };
         }
 
         let mut output = "\n".to_string();
@@ -141,24 +118,19 @@ impl Rdict {
         }
 
         print!("{}", output);
+
+        Ok(())
     }
 
-    pub fn output_chinese(&self, word: &str, result: ToChinese, save_to_cache: bool) {
+    pub fn output_chinese(&self, word: &str, result: ToChinese, save_to_cache: bool) -> Result<()> {
         if save_to_cache {
             if let Some(conn) = &self.conn {
-                match serde_json::to_string(&result) {
-                    Ok(data) => {
-                        if let Err(e) = conn.execute(
+                let data = serde_json::to_string(&result).context("Error serializing result")?;
+                conn.execute(
                     "INSERT OR REPLACE INTO to_chinese_results (word, data) VALUES (?1, ?2)",
                     rusqlite::params![word, data],
-                ) {
-                    eprintln!("Error saving to cache: {e}");
-                }
-                    }
-                    Err(e) => {
-                        eprintln!("Error serializing result: {e}");
-                    }
-                }
+                )
+                .context("Error saving to cache")?;
             }
         }
 
@@ -219,6 +191,7 @@ impl Rdict {
         }
 
         print!("{}", output);
+        Ok(())
     }
 
     pub fn fetch_word_html(&self, word: &str) -> Result<String, reqwest::Error> {
@@ -259,7 +232,9 @@ impl Rdict {
                     if !line.is_empty() {
                         rl.add_history_entry(line.as_str())?;
                         let word = line.as_str().trim();
-                        Self::output_results(self, word);
+                        if let Err(err) = Self::output_results(self, word) {
+                            println!("Error: {err:?}");
+                        }
                     }
                 }
                 Err(err) => {

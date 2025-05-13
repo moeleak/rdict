@@ -1,3 +1,4 @@
+use anyhow::{Result, anyhow};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 
@@ -33,7 +34,7 @@ pub struct ToEnglish {
 }
 
 /// Parses English, returns Chinese
-pub fn to_chinese(html: &str) -> Result<ToChinese, String> {
+pub fn to_chinese(html: &str) -> Result<ToChinese> {
     let document = Html::parse_document(html);
     let mut result = ToChinese::default();
 
@@ -115,14 +116,16 @@ pub fn to_chinese(html: &str) -> Result<ToChinese, String> {
     }
 
     if result.translations.is_empty() {
-        return Err("no translation results found for English to Chinese".to_string());
+        return Err(anyhow!(
+            "No translation results found for English to Chinese"
+        ));
     }
 
     Ok(result)
 }
 
 /// Parses Chinese, returns English
-pub fn to_english(html: &str) -> Result<ToEnglish, String> {
+pub fn to_english(html: &str) -> Result<ToEnglish> {
     let document = Html::parse_document(html);
     let mut result = ToEnglish::default();
 
@@ -162,7 +165,9 @@ pub fn to_english(html: &str) -> Result<ToEnglish, String> {
     }
 
     if result.translations.is_empty() {
-        return Err("no translation results found for Chinese to English".to_string());
+        return Err(anyhow!(
+            "No translation results found for Chinese to English"
+        ));
     }
 
     Ok(result)
