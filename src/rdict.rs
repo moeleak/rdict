@@ -20,7 +20,7 @@ pub enum Format {
     Json,
 }
 
-pub struct FetchedResult {
+struct FetchedResult {
     data: TranslationData,
     is_cached: bool,
 }
@@ -33,6 +33,33 @@ impl Rdict {
             conn,
             format,
         }
+    }
+
+    pub fn interactive_mode(&self) -> rustyline::Result<()> {
+        let mut rl = DefaultEditor::new()?;
+        loop {
+            let readline = if cfg!(target_family = "windows") {
+                rl.readline("[rdict]# ")
+            } else {
+                rl.readline(format!("{}# ", "[rdict]".green()).as_str())
+            };
+            match readline {
+                Ok(line) => {
+                    if !line.is_empty() {
+                        rl.add_history_entry(line.as_str())?;
+                        let word = line.as_str().trim();
+                        if let Err(err) = Self::output_results(self, word) {
+                            println!("Error: {err:?}");
+                        }
+                    }
+                }
+                Err(err) => {
+                    println!("Error: {err:?}");
+                    break;
+                }
+            }
+        }
+        Ok(())
     }
 
     pub fn output_results(&self, word: &str) -> Result<()> {
@@ -54,7 +81,7 @@ impl Rdict {
         Ok(())
     }
 
-    pub fn get_results(&self, word: &str) -> Result<FetchedResult> {
+    fn get_results(&self, word: &str) -> Result<FetchedResult> {
         let is_cjk = contains_cjk(word);
 
         // Retrieve from cache if available
@@ -66,8 +93,9 @@ impl Rdict {
                 let mut rows = stmt.query([word])?;
                 if let Some(row) = rows.next()? {
                     let data: String = row.get(0).context("Failed to get data from row")?;
-                    let result: ToEnglish = serde_json::from_str(&data)
-                        .context("Failed to deserialize data to ToEnglish")?;
+                    let result: ToEnglish = serde_json::from_str(&data).with_context(|| {
+                        format!("Failed to deserialize data to ToEnglish:\n{}", &data)
+                    })?;
 
                     return Ok(FetchedResult {
                         data: TranslationData::ToEnglish(result),
@@ -81,8 +109,9 @@ impl Rdict {
                 let mut rows = stmt.query([word])?;
                 if let Some(row) = rows.next()? {
                     let data: String = row.get(0).context("Failed to get data from row")?;
-                    let result: ToChinese = serde_json::from_str(&data)
-                        .context("Failed to deserialize data to ToChinese")?;
+                    let result: ToChinese = serde_json::from_str(&data).with_context(|| {
+                        format!("Failed to deserialize data to ToChinese:\n{}", &data)
+                    })?;
 
                     return Ok(FetchedResult {
                         data: TranslationData::ToChinese(result),
@@ -128,7 +157,7 @@ impl Rdict {
         }
     }
 
-    pub fn fetch_word_html(&self, word: &str) -> Result<String, reqwest::Error> {
+    fn fetch_word_html(&self, word: &str) -> Result<String, reqwest::Error> {
         let spinner = ProgressBar::new_spinner();
         spinner.set_message("Fetching data...");
         spinner.enable_steady_tick(Duration::from_millis(100));
@@ -153,33 +182,6 @@ impl Rdict {
             .text()?;
 
         Ok(response)
-    }
-
-    pub fn interactive_mode(&self) -> rustyline::Result<()> {
-        let mut rl = DefaultEditor::new()?;
-        loop {
-            let readline = if cfg!(target_family = "windows") {
-                rl.readline("[rdict]# ")
-            } else {
-                rl.readline(format!("{}# ", "[rdict]".green()).as_str())
-            };
-            match readline {
-                Ok(line) => {
-                    if !line.is_empty() {
-                        rl.add_history_entry(line.as_str())?;
-                        let word = line.as_str().trim();
-                        if let Err(err) = Self::output_results(self, word) {
-                            println!("Error: {err:?}");
-                        }
-                    }
-                }
-                Err(err) => {
-                    println!("Error: {err:?}");
-                    break;
-                }
-            }
-        }
-        Ok(())
     }
 }
 
