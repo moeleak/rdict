@@ -18,11 +18,12 @@ rec {
 
     meta = {
       license = lib.licenses.mit;
+      mainProgram = "rdict";
     };
   };
 
   rdict-telegram = rustPlatform.buildRustPackage {
-    pname = "rdict";
+    pname = "rdict-telegram";
     version = "0.1.0";
 
     src = lib.cleanSource ./.;
@@ -38,6 +39,7 @@ rec {
 
     meta = {
       license = lib.licenses.mit;
+      mainProgram = "rdict-telegram";
     };
   };
 }
