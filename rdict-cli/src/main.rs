@@ -7,8 +7,12 @@ use directories_next::ProjectDirs;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use rdict_core::parse::TranslationData;
-use rdict_core::rdict::{Format, Rdict, render_chinese_colored, render_english_colored};
+use rdict_core::rdict::{
+    Format, Rdict, render_chinese_colored, render_chinese_plain, render_english_colored,
+    render_english_plain,
+};
 use rustyline::DefaultEditor;
+use std::env;
 use std::io::{self, IsTerminal, Read};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -27,8 +31,10 @@ impl App {
     async fn new(cli: Args) -> Result<Self> {
         let format = if cli.json {
             Format::Json
-        } else {
+        } else if console::colors_enabled() {
             Format::MarkdownColored
+        } else {
+            Format::Markdown
         };
 
         let db_path: Option<PathBuf> = if cli.no_cache {
@@ -79,7 +85,7 @@ impl App {
         loop {
             // HACK:
             // I don't have a Windows machine to fix https://github.com/kkawakam/rustyline/issues/562
-            let readline = if cfg!(target_family = "windows") {
+            let readline = if cfg!(target_family = "windows") || !console::colors_enabled() {
                 rl.readline("[rdict]# ")
             } else {
                 rl.readline(format!("{}# ", "[rdict]".green()).as_str())
@@ -105,18 +111,28 @@ impl App {
 
     /// Formats and outputs `input_text` in different format provided when initialized
     async fn output_results(&self, input_text: &str) -> Result<()> {
-        let spinner = ProgressBar::new_spinner();
-        spinner.set_message("Fetching data...");
-        spinner.enable_steady_tick(Duration::from_millis(100));
-        spinner.set_style(
-            ProgressStyle::default_spinner()
-                .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
-                .template("{spinner} {msg}")
-                .unwrap(),
-        );
+        let spinner = if supports_ansi() {
+            Some(ProgressBar::new_spinner())
+        } else {
+            None
+        };
+
+        if let Some(spinner) = &spinner {
+            spinner.set_message("Fetching data...");
+            spinner.enable_steady_tick(Duration::from_millis(100));
+            spinner.set_style(
+                ProgressStyle::default_spinner()
+                    .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+                    .template("{spinner} {msg}")
+                    .unwrap(),
+            );
+        }
 
         let result = self.client.get_results(input_text).await?;
-        spinner.finish_and_clear();
+
+        if let Some(spinner) = spinner {
+            spinner.finish_and_clear();
+        }
 
         match self.format {
             Format::MarkdownColored => {
@@ -139,8 +155,27 @@ impl App {
                     );
                 }
             }
+            Format::Markdown => {
+                let output = match &result.data {
+                    TranslationData::ToChinese(tc) => render_chinese_plain(tc)?,
+                    TranslationData::ToEnglish(te) => render_english_plain(te)?,
+                };
+                let indented: String = output
+                    .lines()
+                    .map(|line| format!("  {line}"))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+
+                println!("\n{indented}\n");
+
+                if result.is_cached {
+                    println!(
+                        "  {}\n",
+                        format!("[ {input_text} ] From cache").bright_black()
+                    );
+                }
+            }
             Format::Json => println!("{}", serde_json::to_string_pretty(&result.data)?),
-            _ => todo!(),
         }
 
         Ok(())
@@ -152,4 +187,15 @@ async fn main() -> Result<()> {
     let cli = Args::parse();
     let app = App::new(cli).await?;
     app.run().await
+}
+
+pub fn supports_ansi() -> bool {
+    if env::var("NO_COLOR").is_ok() {
+        return false;
+    }
+
+    match env::var("TERM") {
+        Ok(term) if term != "dumb" => true,
+        _ => false,
+    }
 }
