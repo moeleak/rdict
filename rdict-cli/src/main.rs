@@ -7,10 +7,7 @@ use directories_next::ProjectDirs;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use rdict_core::parse::TranslationData;
-use rdict_core::rdict::{
-    Format, Rdict, render_chinese_colored, render_chinese_plain, render_english_colored,
-    render_english_plain,
-};
+use rdict_core::rdict::{self, Format, Rdict};
 use rustyline::DefaultEditor;
 use std::env;
 use std::io::{self, IsTerminal, Read};
@@ -135,32 +132,24 @@ impl App {
         }
 
         match self.format {
-            Format::MarkdownColored => {
-                let output = match &result.data {
-                    TranslationData::ToChinese(tc) => render_chinese_colored(tc)?,
-                    TranslationData::ToEnglish(te) => render_english_colored(te)?,
+            Format::MarkdownColored | Format::Markdown => {
+                let output = match (&self.format, &result.data) {
+                    (Format::MarkdownColored, TranslationData::ToChinese(tc)) => {
+                        rdict::render_chinese_colored(tc)?
+                    }
+                    (Format::MarkdownColored, TranslationData::ToEnglish(te)) => {
+                        rdict::render_english_colored(te)?
+                    }
+                    (Format::Markdown, TranslationData::ToChinese(tc)) => {
+                        rdict::render_chinese_plain(tc)?
+                    }
+                    (Format::Markdown, TranslationData::ToEnglish(te)) => {
+                        rdict::render_english_plain(te)?
+                    }
+                    _ => unreachable!(),
                 };
-                let indented: String = output
-                    .lines()
-                    .map(|line| format!("  {line}"))
-                    .collect::<Vec<_>>()
-                    .join("\n");
 
-                println!("\n{indented}\n");
-
-                if result.is_cached {
-                    println!(
-                        "  {}\n",
-                        format!("[ {input_text} ] From cache").bright_black()
-                    );
-                }
-            }
-            Format::Markdown => {
-                let output = match &result.data {
-                    TranslationData::ToChinese(tc) => render_chinese_plain(tc)?,
-                    TranslationData::ToEnglish(te) => render_english_plain(te)?,
-                };
-                let indented: String = output
+                let indented = output
                     .lines()
                     .map(|line| format!("  {line}"))
                     .collect::<Vec<_>>()
@@ -189,6 +178,7 @@ async fn main() -> Result<()> {
     app.run().await
 }
 
+#[must_use]
 pub fn supports_ansi() -> bool {
     if env::var("NO_COLOR").is_ok() {
         return false;
