@@ -90,9 +90,8 @@ impl Rdict {
         })
     }
 
-    pub async fn get_results(&self, word: &str) -> Result<FetchedResult> {
-        let word = word.to_string();
-        let is_cjk = contains_cjk(&word);
+    pub async fn get_results(&self, input_text: &str) -> Result<FetchedResult> {
+        let is_cjk = contains_cjk(input_text);
 
         // Try cache first
         if let Some(pool) = &self.pool {
@@ -105,14 +104,13 @@ impl Rdict {
                     TranslationData::ToChinese(serde_json::from_str(&v).unwrap())
                 })
             };
-            let word_for_query = word.clone();
             let query = format!("SELECT data FROM {table} WHERE word = ?");
             let result = sqlx::query(&query)
-                .bind(&word_for_query)
+                .bind(input_text)
                 .fetch_optional(pool)
                 .await
                 .with_context(|| {
-                    format!("Failed to look up cached translation for '{word}' in {table}")
+                    format!("Failed to look up cached translation for '{input_text}' in {table}")
                 })?;
 
             if let Some(row) = result {
@@ -127,17 +125,17 @@ impl Rdict {
 
         // Fetch from web
         let html = self
-            .fetch_word_html(&word)
+            .fetch_word_html(input_text)
             .await
             .context("Error fetching HTML")?;
 
         if is_cjk {
-            let result = to_english(&html)?;
+            let result = to_english(input_text, &html)?;
             if let Some(pool) = &self.pool {
                 let data = serde_json::to_string(&result).context("Error serializing result")?;
 
                 sqlx::query("INSERT OR REPLACE INTO to_english_results (word, data) VALUES (?, ?)")
-                    .bind(word)
+                    .bind(input_text)
                     .bind(&data)
                     .execute(pool)
                     .await
@@ -149,12 +147,12 @@ impl Rdict {
                 is_cached: false,
             })
         } else {
-            let result = to_chinese(&html)?;
+            let result = to_chinese(input_text, &html)?;
             if let Some(pool) = &self.pool {
                 let data = serde_json::to_string(&result).context("Error serializing result")?;
 
                 sqlx::query("INSERT OR REPLACE INTO to_chinese_results (word, data) VALUES (?, ?)")
-                    .bind(word)
+                    .bind(input_text)
                     .bind(&data)
                     .execute(pool)
                     .await

@@ -22,6 +22,7 @@ pub struct Meaning {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ToChinese {
+    pub input_text: String,
     pub pronunciation: Pronunciation,
     pub meanings: Vec<Meaning>,
     pub examples: Vec<Example>,
@@ -29,6 +30,7 @@ pub struct ToChinese {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ToEnglish {
+    pub input_text: String,
     pub meanings: Vec<String>,
     pub examples: Vec<Example>,
 }
@@ -44,9 +46,10 @@ pub enum TranslationData {
 }
 
 /// Parses English, returns Chinese
-pub fn to_chinese(html: &str) -> Result<ToChinese> {
+pub fn to_chinese(input_text: &str, html: &str) -> Result<ToChinese> {
     let document = Html::parse_document(html);
     let mut result = ToChinese::default();
+    result.input_text = input_text.to_string();
 
     // Pronunciation
     let per_phone_selector = Selector::parse(".phone_con .per-phone").unwrap();
@@ -144,9 +147,10 @@ pub fn to_chinese(html: &str) -> Result<ToChinese> {
 }
 
 /// Parses Chinese, returns English
-pub fn to_english(html: &str) -> Result<ToEnglish> {
+pub fn to_english(input_text: &str, html: &str) -> Result<ToEnglish> {
     let document = Html::parse_document(html);
     let mut result = ToEnglish::default();
+    result.input_text = input_text.to_string();
 
     // Meanings
     let translation_selector = Selector::parse(".trans-container .basic .col2 .point").unwrap();
