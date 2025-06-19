@@ -3,6 +3,7 @@ use clap::Parser;
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
 pub struct Args {
+    #[arg(value_name = "TEXT")]
     pub input_text: Option<String>,
 
     /// Cache translations
