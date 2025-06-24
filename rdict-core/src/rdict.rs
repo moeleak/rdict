@@ -1,5 +1,5 @@
 use crate::parse::{ToChinese, ToEnglish, TranslationData, to_chinese, to_english};
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, ensure};
 use owo_colors::OwoColorize;
 use reqwest::Client;
 use sqlx::Row;
@@ -91,7 +91,7 @@ impl Rdict {
     }
 
     pub async fn get_results(&self, input_text: &str) -> Result<FetchedResult> {
-        let is_cjk = contains_cjk(input_text);
+        let is_cjk = contains_cjk(input_text)?;
 
         // Try cache first
         if let Some(pool) = &self.pool {
@@ -186,9 +186,11 @@ impl Rdict {
     }
 }
 
-fn contains_cjk(text: &str) -> bool {
-    text.chars()
-        .any(|ch| ('\u{4E00}'..='\u{9FFF}').contains(&ch))
+fn contains_cjk(text: &str) -> Result<bool> {
+    ensure!(!text.is_empty(), "`text` is empty");
+    Ok(text
+        .chars()
+        .any(|ch| ('\u{4E00}'..='\u{9FFF}').contains(&ch)))
 }
 
 pub fn render_chinese_colored(result: &ToChinese) -> Result<String> {
@@ -328,22 +330,22 @@ mod tests {
 
     #[test]
     fn test_contains_cjk_with_cjk() {
-        assert!(contains_cjk("你好"));
+        assert!(contains_cjk("你好").unwrap());
     }
 
     #[test]
     fn test_contains_cjk_without_cjk() {
-        assert!(!contains_cjk("hello"));
+        assert!(!contains_cjk("hello").unwrap());
     }
 
     #[test]
     fn test_contains_cjk_mixed_input() {
-        assert!(contains_cjk("hello你好"));
+        assert!(contains_cjk("hello你好").unwrap());
     }
 
     #[test]
     fn test_contains_cjk_empty() {
-        assert!(!contains_cjk(""));
+        assert!(contains_cjk("").is_err());
     }
 
     #[tokio::test]
