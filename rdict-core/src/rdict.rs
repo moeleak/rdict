@@ -56,11 +56,11 @@ impl Rdict {
             if should_init_db {
                 let init_statements = [
                     "CREATE TABLE to_english_results (
-                    word TEXT PRIMARY KEY,
+                    text TEXT PRIMARY KEY,
                     data TEXT NOT NULL
                 );",
                     "CREATE TABLE to_chinese_results (
-                    word TEXT PRIMARY KEY,
+                    text TEXT PRIMARY KEY,
                     data TEXT NOT NULL
                 );",
                 ];
@@ -104,7 +104,7 @@ impl Rdict {
                     TranslationData::ToChinese(serde_json::from_str(&v).unwrap())
                 })
             };
-            let query = format!("SELECT data FROM {table} WHERE word = ?");
+            let query = format!("SELECT data FROM {table} WHERE text = ?");
             let result = sqlx::query(&query)
                 .bind(input_text)
                 .fetch_optional(pool)
@@ -125,7 +125,7 @@ impl Rdict {
 
         // Fetch from web
         let html = self
-            .fetch_word_html(input_text)
+            .fetch_text_html(input_text)
             .await
             .context("Error fetching HTML")?;
 
@@ -134,7 +134,7 @@ impl Rdict {
             if let Some(pool) = &self.pool {
                 let data = serde_json::to_string(&result).context("Error serializing result")?;
 
-                sqlx::query("INSERT OR REPLACE INTO to_english_results (word, data) VALUES (?, ?)")
+                sqlx::query("INSERT OR REPLACE INTO to_english_results (text, data) VALUES (?, ?)")
                     .bind(input_text)
                     .bind(&data)
                     .execute(pool)
@@ -151,7 +151,7 @@ impl Rdict {
             if let Some(pool) = &self.pool {
                 let data = serde_json::to_string(&result).context("Error serializing result")?;
 
-                sqlx::query("INSERT OR REPLACE INTO to_chinese_results (word, data) VALUES (?, ?)")
+                sqlx::query("INSERT OR REPLACE INTO to_chinese_results (text, data) VALUES (?, ?)")
                     .bind(input_text)
                     .bind(&data)
                     .execute(pool)
@@ -166,12 +166,12 @@ impl Rdict {
         }
     }
 
-    async fn fetch_word_html(&self, word: &str) -> Result<String, reqwest::Error> {
+    async fn fetch_text_html(&self, text: &str) -> Result<String, reqwest::Error> {
         let url = format!("{}/result", self.base_url);
         let response = self
             .client
             .get(&url)
-            .query(&[("word", word), ("lang", "en")])
+            .query(&[("word", text), ("lang", "en")])
             .header(
                 reqwest::header::USER_AGENT,
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
@@ -186,8 +186,8 @@ impl Rdict {
     }
 }
 
-fn contains_cjk(word: &str) -> bool {
-    word.chars()
+fn contains_cjk(text: &str) -> bool {
+    text.chars()
         .any(|ch| ('\u{4E00}'..='\u{9FFF}').contains(&ch))
 }
 
@@ -347,7 +347,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_fetch_word_html_success_with_mock_server() {
+    async fn test_fetch_text_html_success_with_mock_server() {
         let mut server = Server::new_async().await;
 
         let mock = server
@@ -362,7 +362,7 @@ mod tests {
 
         let client = Rdict::new(&server.url(), None).await.unwrap();
 
-        let html = client.fetch_word_html("hello").await.unwrap();
+        let html = client.fetch_text_html("hello").await.unwrap();
         assert!(html.contains("Hello"));
         mock.assert();
     }
