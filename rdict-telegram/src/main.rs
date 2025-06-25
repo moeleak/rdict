@@ -1,6 +1,7 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use rdict_core::parse::TranslationData;
 use rdict_core::rdict::{self, Rdict};
+use std::sync::Arc;
 use teloxide::sugar::request::RequestReplyExt;
 use teloxide::types::ParseMode;
 use teloxide::{prelude::*, utils::command::BotCommands};
@@ -10,9 +11,19 @@ async fn main() -> Result<()> {
     env_logger::init();
     log::info!("Starting translation bot...");
 
+    let client = Arc::new(Rdict::new("https://m.youdao.com", None).await?);
     let bot = Bot::from_env();
 
-    Command::repl(bot, answer).await;
+    let handler = Update::filter_message()
+        .filter_command::<Command>()
+        .endpoint(handle_command);
+
+    Dispatcher::builder(bot, handler)
+        .dependencies(dptree::deps![client])
+        .enable_ctrlc_handler()
+        .build()
+        .dispatch()
+        .await;
 
     Ok(())
 }
@@ -29,49 +40,55 @@ enum Command {
     Translate(String),
 }
 
-async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
-    match cmd {
+async fn handle_command(bot: Bot, msg: Message, cmd: Command, client: Arc<Rdict>) -> Result<()> {
+    let answer = async || match cmd {
         Command::Help => {
             bot.send_message(msg.chat.id, Command::descriptions().to_string())
-                .await?
+                .await?;
+
+            Ok(())
         }
+
         Command::Translate(text) => {
-            // TODO: Don't create a `rdict` client on every request
-            let client = Rdict::new("https://m.youdao.com", None).await.unwrap();
-            let res = client.get_results(&text).await;
+            let result = client
+                .get_results(&text)
+                .await
+                .context("Failed to get translation results")?;
 
-            match res {
-                Ok(result) => {
-                    let output_result = match result.data {
-                        TranslationData::ToChinese(tc) => rdict::render_chinese_plain(&tc),
-                        TranslationData::ToEnglish(te) => rdict::render_english_plain(&te),
-                    };
+            let output = match result.data {
+                TranslationData::ToChinese(tc) => rdict::render_chinese_plain(&tc)
+                    .context("Failed to render Chinese translation")?,
+                TranslationData::ToEnglish(te) => rdict::render_english_plain(&te)
+                    .context("Failed to render English translation")?,
+            };
 
-                    match output_result {
-                        Ok(output) => {
-                            let wrapped_output = format!(
-                                "<pre><code class=\"language-markdown\">{}</code></pre>",
-                                html_escape::encode_text(&output)
-                            );
-                            bot.send_message(msg.chat.id, wrapped_output)
-                                .reply_to(msg)
-                                .parse_mode(ParseMode::Html)
-                                .await?
-                        }
-                        Err(err) => {
-                            bot.send_message(msg.chat.id, format!("Format error: {err}"))
-                                .reply_to(msg)
-                                .await?
-                        }
-                    }
-                }
-                Err(err) => {
-                    bot.send_message(msg.chat.id, format!("Lookup failed: {err}"))
-                        .await?
-                }
-            }
+            let wrapped_output = format!(
+                "<pre><code class=\"language-markdown\">{}</code></pre>",
+                html_escape::encode_text(&output)
+            );
+
+            bot.send_message(msg.chat.id, wrapped_output)
+                .reply_to(&msg)
+                .parse_mode(ParseMode::Html)
+                .await
+                .context("Failed to send message")?;
+
+            Ok(())
         }
     };
+
+    let res: Result<()> = answer().await;
+
+    // TODO: Use `Dispatcher`'s `handle_error`.
+    if let Err(e) = res {
+        log::error!("{e:?}");
+        bot.send_message(
+            msg.chat.id,
+            format!("❌ An error occurred. Please try again later.\n\nErr: {e}"),
+        )
+        .await
+        .ok();
+    }
 
     Ok(())
 }
