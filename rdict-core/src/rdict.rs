@@ -95,33 +95,56 @@ impl Rdict {
 
         // Try cache first
         if let Some(pool) = &self.pool {
-            let (table, variant): (&str, fn(String) -> TranslationData) = if is_cjk {
+            let (table, variant): (&str, fn(String) -> Result<TranslationData>) = if is_cjk {
                 ("to_english_results", |v| {
-                    TranslationData::ToEnglish(serde_json::from_str(&v).unwrap())
+                    Ok(TranslationData::ToEnglish(serde_json::from_str(&v)?))
                 })
             } else {
                 ("to_chinese_results", |v| {
-                    TranslationData::ToChinese(serde_json::from_str(&v).unwrap())
+                    Ok(TranslationData::ToChinese(serde_json::from_str(&v)?))
                 })
             };
+
             let query = format!("SELECT data FROM {table} WHERE text = ?");
-            let result = sqlx::query(&query)
+            let delete_row = async || {
+                let query = format!("DELETE FROM {table} WHERE text = ?");
+
+                sqlx::query(&query)
+                    .bind(input_text)
+                    .execute(pool)
+                    .await
+                    .with_context(|| {
+                        "Failed to fetch data from cache database nor re-fetch translation result"
+                            .to_string()
+                    })
+            };
+
+            match sqlx::query(&query)
                 .bind(input_text)
                 .fetch_optional(pool)
                 .await
-                .with_context(|| {
-                    format!("Failed to look up cached translation for '{input_text}' in {table}")
-                })?;
+            {
+                Ok(Some(result)) => {
+                    let data_str: String = result.try_get("data")?;
+                    match variant(data_str) {
+                        Ok(data) => {
+                            return Ok(FetchedResult {
+                                data,
+                                is_cached: true,
+                            });
+                        }
+                        Err(_) => delete_row().await?,
+                    };
+                }
 
-            if let Some(row) = result {
-                let data_str: String = row.try_get("data")?;
-                let data = variant(data_str);
-                return Ok(FetchedResult {
-                    data,
-                    is_cached: true,
-                });
-            }
-        }
+                Ok(None) => {}
+
+                // Database error, delete row and fetch data again.
+                Err(_) => {
+                    delete_row().await?;
+                }
+            };
+        };
 
         // Fetch from web
         let html = self
