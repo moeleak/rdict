@@ -46,13 +46,23 @@ pub enum TranslationData {
 }
 
 /// Parses English, returns Chinese
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Parsing the CSS selectors fails.
+/// - No matching results are found in the parsed document.
 pub fn to_chinese(input_text: &str, html: &str) -> Result<ToChinese> {
     let document = Html::parse_document(html);
-    let mut result = ToChinese::default();
-    result.input_text = input_text.to_string();
+    let mut result = ToChinese {
+        input_text: input_text.to_string(),
+        ..Default::default()
+    };
 
     // Pronunciation
-    let pronunciation_selector = Selector::parse(".phone_con .per-phone .phonetic").unwrap();
+    let pronunciation_selector = Selector::parse(".phone_con .per-phone .phonetic")
+        .map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
+
     for (i, element) in document.select(&pronunciation_selector).take(2).enumerate() {
         let text = element
             .text()
@@ -71,9 +81,12 @@ pub fn to_chinese(input_text: &str, html: &str) -> Result<ToChinese> {
     }
 
     // Translations
-    let meanings_selector = Selector::parse(".trans-container .basic .word-exp").unwrap();
-    let definitions_selector = Selector::parse(".trans").unwrap();
-    let part_of_speech_selector = Selector::parse(".pos").unwrap();
+    let meanings_selector = Selector::parse(".trans-container .basic .word-exp")
+        .map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
+    let definitions_selector =
+        Selector::parse(".trans").map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
+    let part_of_speech_selector =
+        Selector::parse(".pos").map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
 
     for element in document.select(&meanings_selector) {
         let part_of_speech = element
@@ -103,9 +116,12 @@ pub fn to_chinese(input_text: &str, html: &str) -> Result<ToChinese> {
     }
 
     // Example sentences
-    let example_selector = Selector::parse(".trans-container .mcols-layout .col2").unwrap();
-    let en_selector = Selector::parse(".sen-eng").unwrap();
-    let zh_selector = Selector::parse(".sen-ch").unwrap();
+    let example_selector = Selector::parse(".trans-container .mcols-layout .col2")
+        .map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
+    let en_selector =
+        Selector::parse(".sen-eng").map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
+    let zh_selector =
+        Selector::parse(".sen-ch").map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
 
     for element in document.select(&example_selector) {
         let en = element
@@ -137,13 +153,22 @@ pub fn to_chinese(input_text: &str, html: &str) -> Result<ToChinese> {
 }
 
 /// Parses Chinese, returns English
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Parsing the CSS selectors fails.
+/// - No matching results are found in the parsed document.
 pub fn to_english(input_text: &str, html: &str) -> Result<ToEnglish> {
     let document = Html::parse_document(html);
-    let mut result = ToEnglish::default();
-    result.input_text = input_text.to_string();
+    let mut result = ToEnglish {
+        input_text: input_text.to_string(),
+        ..Default::default()
+    };
 
     // Meanings
-    let translation_selector = Selector::parse(".trans-container .basic .col2 .point").unwrap();
+    let translation_selector = Selector::parse(".trans-container .basic .col2 .point")
+        .map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
     for element in document.select(&translation_selector) {
         let text = element.text().collect::<String>().trim().to_owned();
         if !text.is_empty() {
@@ -152,9 +177,12 @@ pub fn to_english(input_text: &str, html: &str) -> Result<ToEnglish> {
     }
 
     // Example sentences
-    let example_selector = Selector::parse(".trans-container .mcols-layout .col2").unwrap();
-    let en_selector = Selector::parse(".sen-eng").unwrap();
-    let zh_selector = Selector::parse(".sen-ch").unwrap();
+    let example_selector = Selector::parse(".trans-container .mcols-layout .col2")
+        .map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
+    let en_selector =
+        Selector::parse(".sen-eng").map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
+    let zh_selector =
+        Selector::parse(".sen-ch").map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
 
     for element in document.select(&example_selector) {
         let en = element

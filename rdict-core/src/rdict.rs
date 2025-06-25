@@ -31,9 +31,17 @@ pub struct FetchedResult {
 }
 
 impl Rdict {
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Creating the parent directory for the database path fails.
+    /// - Converting the database path to a string fails.
+    /// - Checking for database existence or creating the database fails.
+    /// - Connecting to the `SQLite` database fails.
+    /// - Executing SQL statements to initialize the cache tables fails.
+    /// - Any I/O or database operation fails during setup.
     pub async fn new(base_url: &str, cache_db_path: Option<std::path::PathBuf>) -> Result<Self> {
-        let pool: Option<SqlitePool> = if cache_db_path.is_some() {
-            let db_path = cache_db_path.unwrap();
+        let pool: Option<SqlitePool> = if let Some(db_path) = cache_db_path {
             let should_init_db = !db_path.exists();
 
             if let Some(parent) = db_path.parent() {
@@ -91,6 +99,21 @@ impl Rdict {
         })
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// - Determining if the input is CJK fails (`contains_cjk` fails).
+    /// - Querying or modifying the cache database fails (`sqlx` errors).
+    /// - Fetching the HTML page from the web fails.
+    /// - Parsing the HTML into translation data fails.
+    /// - Serializing the translation result to JSON fails.
+    /// - Inserting the result into the cache database fails.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    /// - Cached JSON string exists but is malformed.
     pub async fn get_results(&self, input_text: &str) -> Result<FetchedResult> {
         let is_cjk = contains_cjk(input_text)?;
         debug!("Getting result. input_text: {input_text}, is_cjk: {is_cjk}");
@@ -223,6 +246,11 @@ fn contains_cjk(text: &str) -> Result<bool> {
         .any(|ch| ('\u{4E00}'..='\u{9FFF}').contains(&ch)))
 }
 
+/// # Errors
+///
+/// Returns an error if:
+/// - Writing to the buffer fails (which should not occur under normal
+///   circumstances with a `String` as the buffer).
 pub fn render_chinese_colored(result: &ToChinese) -> Result<String> {
     let mut output = String::new();
 
@@ -265,6 +293,11 @@ pub fn render_chinese_colored(result: &ToChinese) -> Result<String> {
     Ok(output.trim_end().to_string())
 }
 
+/// # Errors
+///
+/// Returns an error if:
+/// - Writing to the buffer fails (which should not occur under normal
+///   circumstances with a `String` as the buffer).
 pub fn render_english_colored(result: &ToEnglish) -> Result<String> {
     let mut output = String::new();
 
@@ -288,6 +321,11 @@ pub fn render_english_colored(result: &ToEnglish) -> Result<String> {
     Ok(output.trim_end().to_string())
 }
 
+/// # Errors
+///
+/// Returns an error if:
+/// - Writing to the buffer fails (which should not occur under normal
+///   circumstances with a `String` as the buffer).
 pub fn render_chinese_plain(result: &ToChinese) -> Result<String> {
     let mut output = String::new();
 
@@ -330,6 +368,11 @@ pub fn render_chinese_plain(result: &ToChinese) -> Result<String> {
     Ok(output.trim_end().to_string())
 }
 
+/// # Errors
+///
+/// Returns an error if:
+/// - Writing to the buffer fails (which should not occur under normal
+///   circumstances with a `String` as the buffer).
 pub fn render_english_plain(result: &ToEnglish) -> Result<String> {
     let mut output = String::new();
 
@@ -379,6 +422,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::significant_drop_tightening)]
     async fn test_fetch_text_html_success_with_mock_server() {
         let mut server = Server::new_async().await;
 

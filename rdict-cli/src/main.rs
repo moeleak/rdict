@@ -118,6 +118,7 @@ impl App {
             let spinner = ProgressBar::new_spinner();
             spinner.set_message("Fetching data...");
             spinner.enable_steady_tick(Duration::from_millis(100));
+            #[allow(clippy::literal_string_with_formatting_args)]
             spinner.set_style(
                 ProgressStyle::default_spinner()
                     .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
@@ -189,8 +190,5 @@ pub fn supports_ansi() -> bool {
         return false;
     }
 
-    match env::var("TERM") {
-        Ok(term) if term != "dumb" => true,
-        _ => false,
-    }
+    matches!(env::var("TERM"), Ok(term) if term != "dumb")
 }
