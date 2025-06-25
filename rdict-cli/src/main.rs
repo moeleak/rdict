@@ -5,6 +5,7 @@ use anyhow::{Context, Result, ensure};
 use clap::Parser;
 use directories_next::ProjectDirs;
 use indicatif::{ProgressBar, ProgressStyle};
+use log::info;
 use owo_colors::OwoColorize;
 use rdict_core::parse::TranslationData;
 use rdict_core::rdict::{self, Format, Rdict};
@@ -58,8 +59,12 @@ impl App {
         let stdin_is_piped = !io::stdin().is_terminal();
 
         match &self.cli.input_text {
-            Some(input_text) => self.output_results(input_text).await?,
+            Some(input_text) => {
+                info!("`input_text` provided through argument.");
+                self.output_results(input_text).await?;
+            }
             None if stdin_is_piped => {
+                info!("`input_text` provided through pipe.");
                 let mut buffer = String::new();
                 io::stdin().read_to_string(&mut buffer)?;
                 let input_text = buffer.trim();
@@ -67,6 +72,7 @@ impl App {
                 self.output_results(input_text).await?;
             }
             _ => {
+                info!("`input_text` not provided, entering interactive mode.");
                 self.interactive_mode()
                     .await
                     .context("Interactive mode failed")?;
@@ -108,13 +114,8 @@ impl App {
 
     /// Formats and outputs `input_text` in different format provided when initialized
     async fn output_results(&self, input_text: &str) -> Result<()> {
-        let spinner = if supports_ansi() {
-            Some(ProgressBar::new_spinner())
-        } else {
-            None
-        };
-
-        if let Some(spinner) = &spinner {
+        let spinner = supports_ansi().then(|| {
+            let spinner = ProgressBar::new_spinner();
             spinner.set_message("Fetching data...");
             spinner.enable_steady_tick(Duration::from_millis(100));
             spinner.set_style(
@@ -123,7 +124,9 @@ impl App {
                     .template("{spinner} {msg}")
                     .unwrap(),
             );
-        }
+
+            spinner
+        });
 
         let result = self.client.get_results(input_text).await?;
 
@@ -173,6 +176,8 @@ impl App {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    env_logger::init();
+
     let cli = Args::parse();
     let app = App::new(cli).await?;
     app.run().await

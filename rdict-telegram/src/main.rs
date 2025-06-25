@@ -7,8 +7,7 @@ use teloxide::{prelude::*, utils::command::BotCommands};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize logger, etc.
-    pretty_env_logger::init();
+    env_logger::init();
     log::info!("Starting translation bot...");
 
     let bot = Bot::from_env();

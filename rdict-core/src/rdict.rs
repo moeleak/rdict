@@ -1,5 +1,6 @@
 use crate::parse::{ToChinese, ToEnglish, TranslationData, to_chinese, to_english};
 use anyhow::{Context, Result, ensure};
+use log::{debug, info};
 use owo_colors::OwoColorize;
 use reqwest::Client;
 use sqlx::Row;
@@ -92,10 +93,12 @@ impl Rdict {
 
     pub async fn get_results(&self, input_text: &str) -> Result<FetchedResult> {
         let is_cjk = contains_cjk(input_text)?;
+        debug!("Getting result. input_text: {input_text}, is_cjk: {is_cjk}");
 
         // Try cache first
         if let Some(pool) = &self.pool {
             let (table, variant): (&str, fn(String) -> Result<TranslationData>) = if is_cjk {
+                debug!("Caching enabled, trying fetch data from cache.");
                 ("to_english_results", |v| {
                     Ok(TranslationData::ToEnglish(serde_json::from_str(&v)?))
                 })
@@ -137,14 +140,18 @@ impl Rdict {
                     };
                 }
 
-                Ok(None) => {}
+                Ok(None) => {
+                    info!("Translation cache missed, fetching translation data again.");
+                }
 
-                // Database error, delete row and fetch data again.
                 Err(_) => {
+                    info!(
+                        "Database error, deleting row from SQLite cache and fetching translation data again."
+                    );
                     delete_row().await?;
                 }
-            };
-        };
+            }
+        }
 
         // Fetch from web
         let html = self
