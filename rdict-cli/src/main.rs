@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod args;
 
 use crate::args::Args;

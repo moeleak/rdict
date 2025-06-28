@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use anyhow::{Context, Result};
 use rdict_core::parse::TranslationData;
 use rdict_core::rdict::{self, Rdict};
