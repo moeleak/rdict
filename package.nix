@@ -1,14 +1,16 @@
 { lib, rustPlatform }:
+let
+  cargoHash = "sha256-kTmN33oFodggtIwZo1Ex4slRSfYoYVOl7JVWxouVNOI=";
+in
 rec {
   default = rdict;
   rdict = rustPlatform.buildRustPackage {
+    inherit cargoHash;
+
     pname = "rdict";
     version = "0.1.0";
 
     src = lib.cleanSource ./.;
-
-    useFetchCargoVendor = true;
-    cargoHash = "sha256-Oi1N29W7PzO4qucJ9ggTH/tLT6Tvd5Yx5+P1UwaIN4w=";
 
     buildAndTestSubdir = "./rdict-cli";
 
@@ -23,13 +25,12 @@ rec {
   };
 
   rdict-telegram = rustPlatform.buildRustPackage {
+    inherit cargoHash;
+
     pname = "rdict-telegram";
     version = "0.1.0";
 
     src = lib.cleanSource ./.;
-
-    useFetchCargoVendor = true;
-    cargoHash = "sha256-Oi1N29W7PzO4qucJ9ggTH/tLT6Tvd5Yx5+P1UwaIN4w=";
 
     buildAndTestSubdir = "./rdict-telegram";
 
