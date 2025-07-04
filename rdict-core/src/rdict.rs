@@ -1,5 +1,6 @@
 use crate::parse::{ToChinese, ToEnglish, TranslationData, to_chinese, to_english};
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, ensure};
+use log::{debug, info};
 use owo_colors::OwoColorize;
 use reqwest::Client;
 use sqlx::Row;
@@ -30,9 +31,17 @@ pub struct FetchedResult {
 }
 
 impl Rdict {
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Creating the parent directory for the database path fails.
+    /// - Converting the database path to a string fails.
+    /// - Checking for database existence or creating the database fails.
+    /// - Connecting to the `SQLite` database fails.
+    /// - Executing SQL statements to initialize the cache tables fails.
+    /// - Any I/O or database operation fails during setup.
     pub async fn new(base_url: &str, cache_db_path: Option<std::path::PathBuf>) -> Result<Self> {
-        let pool: Option<SqlitePool> = if cache_db_path.is_some() {
-            let db_path = cache_db_path.unwrap();
+        let pool: Option<SqlitePool> = if let Some(db_path) = cache_db_path {
             let should_init_db = !db_path.exists();
 
             if let Some(parent) = db_path.parent() {
@@ -56,11 +65,11 @@ impl Rdict {
             if should_init_db {
                 let init_statements = [
                     "CREATE TABLE to_english_results (
-                    word TEXT PRIMARY KEY,
+                    text TEXT PRIMARY KEY,
                     data TEXT NOT NULL
                 );",
                     "CREATE TABLE to_chinese_results (
-                    word TEXT PRIMARY KEY,
+                    text TEXT PRIMARY KEY,
                     data TEXT NOT NULL
                 );",
                 ];
@@ -90,54 +99,96 @@ impl Rdict {
         })
     }
 
-    pub async fn get_results(&self, word: &str) -> Result<FetchedResult> {
-        let word = word.to_string();
-        let is_cjk = contains_cjk(&word);
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// - Determining if the input is CJK fails (`contains_cjk` fails).
+    /// - Querying or modifying the cache database fails (`sqlx` errors).
+    /// - Fetching the HTML page from the web fails.
+    /// - Parsing the HTML into translation data fails.
+    /// - Serializing the translation result to JSON fails.
+    /// - Inserting the result into the cache database fails.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    /// - Cached JSON string exists but is malformed.
+    pub async fn get_results(&self, input_text: &str) -> Result<FetchedResult> {
+        let is_cjk = contains_cjk(input_text)?;
+        debug!("Getting result. input_text: {input_text}, is_cjk: {is_cjk}");
 
         // Try cache first
         if let Some(pool) = &self.pool {
-            let (table, variant): (&str, fn(String) -> TranslationData) = if is_cjk {
+            let (table, variant): (&str, fn(String) -> Result<TranslationData>) = if is_cjk {
+                debug!("Caching enabled, trying fetch data from cache.");
                 ("to_english_results", |v| {
-                    TranslationData::ToEnglish(serde_json::from_str(&v).unwrap())
+                    Ok(TranslationData::ToEnglish(serde_json::from_str(&v)?))
                 })
             } else {
                 ("to_chinese_results", |v| {
-                    TranslationData::ToChinese(serde_json::from_str(&v).unwrap())
+                    Ok(TranslationData::ToChinese(serde_json::from_str(&v)?))
                 })
             };
-            let word_for_query = word.clone();
-            let query = format!("SELECT data FROM {table} WHERE word = ?");
-            let result = sqlx::query(&query)
-                .bind(&word_for_query)
+
+            let query = format!("SELECT data FROM {table} WHERE text = ?");
+            let delete_row = async || {
+                let query = format!("DELETE FROM {table} WHERE text = ?");
+
+                sqlx::query(&query)
+                    .bind(input_text)
+                    .execute(pool)
+                    .await
+                    .with_context(|| {
+                        "Failed to fetch data from cache database nor re-fetch translation result"
+                            .to_string()
+                    })
+            };
+
+            match sqlx::query(&query)
+                .bind(input_text)
                 .fetch_optional(pool)
                 .await
-                .with_context(|| {
-                    format!("Failed to look up cached translation for '{word}' in {table}")
-                })?;
+            {
+                Ok(Some(result)) => {
+                    let data_str: String = result.try_get("data")?;
+                    match variant(data_str) {
+                        Ok(data) => {
+                            return Ok(FetchedResult {
+                                data,
+                                is_cached: true,
+                            });
+                        }
+                        Err(_) => delete_row().await?,
+                    };
+                }
 
-            if let Some(row) = result {
-                let data_str: String = row.try_get("data")?;
-                let data = variant(data_str);
-                return Ok(FetchedResult {
-                    data,
-                    is_cached: true,
-                });
+                Ok(None) => {
+                    info!("Translation cache missed, fetching translation data again.");
+                }
+
+                Err(_) => {
+                    info!(
+                        "Database error, deleting row from SQLite cache and fetching translation data again."
+                    );
+                    delete_row().await?;
+                }
             }
         }
 
         // Fetch from web
         let html = self
-            .fetch_word_html(&word)
+            .fetch_text_html(input_text)
             .await
             .context("Error fetching HTML")?;
 
         if is_cjk {
-            let result = to_english(&html)?;
+            let result = to_english(input_text, &html)?;
             if let Some(pool) = &self.pool {
                 let data = serde_json::to_string(&result).context("Error serializing result")?;
 
-                sqlx::query("INSERT OR REPLACE INTO to_english_results (word, data) VALUES (?, ?)")
-                    .bind(word)
+                sqlx::query("INSERT OR REPLACE INTO to_english_results (text, data) VALUES (?, ?)")
+                    .bind(input_text)
                     .bind(&data)
                     .execute(pool)
                     .await
@@ -149,12 +200,12 @@ impl Rdict {
                 is_cached: false,
             })
         } else {
-            let result = to_chinese(&html)?;
+            let result = to_chinese(input_text, &html)?;
             if let Some(pool) = &self.pool {
                 let data = serde_json::to_string(&result).context("Error serializing result")?;
 
-                sqlx::query("INSERT OR REPLACE INTO to_chinese_results (word, data) VALUES (?, ?)")
-                    .bind(word)
+                sqlx::query("INSERT OR REPLACE INTO to_chinese_results (text, data) VALUES (?, ?)")
+                    .bind(input_text)
                     .bind(&data)
                     .execute(pool)
                     .await
@@ -168,12 +219,12 @@ impl Rdict {
         }
     }
 
-    async fn fetch_word_html(&self, word: &str) -> Result<String, reqwest::Error> {
+    async fn fetch_text_html(&self, text: &str) -> Result<String, reqwest::Error> {
         let url = format!("{}/result", self.base_url);
         let response = self
             .client
             .get(&url)
-            .query(&[("word", word), ("lang", "en")])
+            .query(&[("word", text), ("lang", "en")])
             .header(
                 reqwest::header::USER_AGENT,
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
@@ -188,11 +239,18 @@ impl Rdict {
     }
 }
 
-fn contains_cjk(word: &str) -> bool {
-    word.chars()
-        .any(|ch| ('\u{4E00}'..='\u{9FFF}').contains(&ch))
+fn contains_cjk(text: &str) -> Result<bool> {
+    ensure!(!text.is_empty(), "`text` is empty");
+    Ok(text
+        .chars()
+        .any(|ch| ('\u{4E00}'..='\u{9FFF}').contains(&ch)))
 }
 
+/// # Errors
+///
+/// Returns an error if:
+/// - Writing to the buffer fails (which should not occur under normal
+///   circumstances with a `String` as the buffer).
 pub fn render_chinese_colored(result: &ToChinese) -> Result<String> {
     let mut output = String::new();
 
@@ -235,6 +293,11 @@ pub fn render_chinese_colored(result: &ToChinese) -> Result<String> {
     Ok(output.trim_end().to_string())
 }
 
+/// # Errors
+///
+/// Returns an error if:
+/// - Writing to the buffer fails (which should not occur under normal
+///   circumstances with a `String` as the buffer).
 pub fn render_english_colored(result: &ToEnglish) -> Result<String> {
     let mut output = String::new();
 
@@ -258,6 +321,11 @@ pub fn render_english_colored(result: &ToEnglish) -> Result<String> {
     Ok(output.trim_end().to_string())
 }
 
+/// # Errors
+///
+/// Returns an error if:
+/// - Writing to the buffer fails (which should not occur under normal
+///   circumstances with a `String` as the buffer).
 pub fn render_chinese_plain(result: &ToChinese) -> Result<String> {
     let mut output = String::new();
 
@@ -300,6 +368,11 @@ pub fn render_chinese_plain(result: &ToChinese) -> Result<String> {
     Ok(output.trim_end().to_string())
 }
 
+/// # Errors
+///
+/// Returns an error if:
+/// - Writing to the buffer fails (which should not occur under normal
+///   circumstances with a `String` as the buffer).
 pub fn render_english_plain(result: &ToEnglish) -> Result<String> {
     let mut output = String::new();
 
@@ -330,26 +403,27 @@ mod tests {
 
     #[test]
     fn test_contains_cjk_with_cjk() {
-        assert!(contains_cjk("你好"));
+        assert!(contains_cjk("你好").unwrap());
     }
 
     #[test]
     fn test_contains_cjk_without_cjk() {
-        assert!(!contains_cjk("hello"));
+        assert!(!contains_cjk("hello").unwrap());
     }
 
     #[test]
     fn test_contains_cjk_mixed_input() {
-        assert!(contains_cjk("hello你好"));
+        assert!(contains_cjk("hello你好").unwrap());
     }
 
     #[test]
     fn test_contains_cjk_empty() {
-        assert!(!contains_cjk(""));
+        assert!(contains_cjk("").is_err());
     }
 
     #[tokio::test]
-    async fn test_fetch_word_html_success_with_mock_server() {
+    #[allow(clippy::significant_drop_tightening)]
+    async fn test_fetch_text_html_success_with_mock_server() {
         let mut server = Server::new_async().await;
 
         let mock = server
@@ -364,7 +438,7 @@ mod tests {
 
         let client = Rdict::new(&server.url(), None).await.unwrap();
 
-        let html = client.fetch_word_html("hello").await.unwrap();
+        let html = client.fetch_text_html("hello").await.unwrap();
         assert!(html.contains("Hello"));
         mock.assert();
     }

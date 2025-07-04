@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod args;
 
 use crate::args::Args;
@@ -5,10 +7,12 @@ use anyhow::{Context, Result, ensure};
 use clap::Parser;
 use directories_next::ProjectDirs;
 use indicatif::{ProgressBar, ProgressStyle};
+use log::info;
 use owo_colors::OwoColorize;
 use rdict_core::parse::TranslationData;
-use rdict_core::rdict::{Format, Rdict, render_chinese_colored, render_english_colored};
+use rdict_core::rdict::{self, Format, Rdict};
 use rustyline::DefaultEditor;
+use std::env;
 use std::io::{self, IsTerminal, Read};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -27,8 +31,10 @@ impl App {
     async fn new(cli: Args) -> Result<Self> {
         let format = if cli.json {
             Format::Json
-        } else {
+        } else if console::colors_enabled() {
             Format::MarkdownColored
+        } else {
+            Format::Markdown
         };
 
         let db_path: Option<PathBuf> = if cli.no_cache {
@@ -55,8 +61,12 @@ impl App {
         let stdin_is_piped = !io::stdin().is_terminal();
 
         match &self.cli.input_text {
-            Some(input_text) => self.output_results(input_text).await?,
+            Some(input_text) => {
+                info!("`input_text` provided through argument.");
+                self.output_results(input_text).await?;
+            }
             None if stdin_is_piped => {
+                info!("`input_text` provided through pipe.");
                 let mut buffer = String::new();
                 io::stdin().read_to_string(&mut buffer)?;
                 let input_text = buffer.trim();
@@ -64,6 +74,7 @@ impl App {
                 self.output_results(input_text).await?;
             }
             _ => {
+                info!("`input_text` not provided, entering interactive mode.");
                 self.interactive_mode()
                     .await
                     .context("Interactive mode failed")?;
@@ -79,7 +90,7 @@ impl App {
         loop {
             // HACK:
             // I don't have a Windows machine to fix https://github.com/kkawakam/rustyline/issues/562
-            let readline = if cfg!(target_family = "windows") {
+            let readline = if cfg!(target_family = "windows") || !console::colors_enabled() {
                 rl.readline("[rdict]# ")
             } else {
                 rl.readline(format!("{}# ", "[rdict]".green()).as_str())
@@ -105,26 +116,46 @@ impl App {
 
     /// Formats and outputs `input_text` in different format provided when initialized
     async fn output_results(&self, input_text: &str) -> Result<()> {
-        let spinner = ProgressBar::new_spinner();
-        spinner.set_message("Fetching data...");
-        spinner.enable_steady_tick(Duration::from_millis(100));
-        spinner.set_style(
-            ProgressStyle::default_spinner()
-                .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
-                .template("{spinner} {msg}")
-                .unwrap(),
-        );
+        let spinner = supports_ansi().then(|| {
+            let spinner = ProgressBar::new_spinner();
+            spinner.set_message("Fetching data...");
+            spinner.enable_steady_tick(Duration::from_millis(100));
+            #[allow(clippy::literal_string_with_formatting_args)]
+            spinner.set_style(
+                ProgressStyle::default_spinner()
+                    .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+                    .template("{spinner} {msg}")
+                    .unwrap(),
+            );
+
+            spinner
+        });
 
         let result = self.client.get_results(input_text).await?;
-        spinner.finish_and_clear();
+
+        if let Some(spinner) = spinner {
+            spinner.finish_and_clear();
+        }
 
         match self.format {
-            Format::MarkdownColored => {
-                let output = match &result.data {
-                    TranslationData::ToChinese(tc) => render_chinese_colored(tc)?,
-                    TranslationData::ToEnglish(te) => render_english_colored(te)?,
+            Format::MarkdownColored | Format::Markdown => {
+                let output = match (&self.format, &result.data) {
+                    (Format::MarkdownColored, TranslationData::ToChinese(tc)) => {
+                        rdict::render_chinese_colored(tc)?
+                    }
+                    (Format::MarkdownColored, TranslationData::ToEnglish(te)) => {
+                        rdict::render_english_colored(te)?
+                    }
+                    (Format::Markdown, TranslationData::ToChinese(tc)) => {
+                        rdict::render_chinese_plain(tc)?
+                    }
+                    (Format::Markdown, TranslationData::ToEnglish(te)) => {
+                        rdict::render_english_plain(te)?
+                    }
+                    _ => unreachable!(),
                 };
-                let indented: String = output
+
+                let indented = output
                     .lines()
                     .map(|line| format!("  {line}"))
                     .collect::<Vec<_>>()
@@ -140,7 +171,6 @@ impl App {
                 }
             }
             Format::Json => println!("{}", serde_json::to_string_pretty(&result.data)?),
-            _ => todo!(),
         }
 
         Ok(())
@@ -149,7 +179,18 @@ impl App {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    env_logger::init();
+
     let cli = Args::parse();
     let app = App::new(cli).await?;
     app.run().await
+}
+
+#[must_use]
+pub fn supports_ansi() -> bool {
+    if env::var("NO_COLOR").is_ok() {
+        return false;
+    }
+
+    matches!(env::var("TERM"), Ok(term) if term != "dumb")
 }
