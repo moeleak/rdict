@@ -9,6 +9,7 @@ use sqlx::sqlite::SqlitePool;
 use std::fmt::Write;
 use std::fs;
 
+#[derive(Debug, Clone)]
 pub struct Rdict {
     client: Client,
     base_url: String,
