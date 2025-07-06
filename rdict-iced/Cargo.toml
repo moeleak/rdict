@@ -1,11 +1,18 @@
 [package]
 name = "rdict_iced"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+readme.workspace = true
 
 [dependencies]
 anyhow = "1.0.98"
-iced = { git = "https://github.com/iced-rs/iced.git", rev = "283d0e74a8050ea625da25e0b9180b65f11d1843", features = ["tokio"]}
+iced = { git = "https://github.com/iced-rs/iced.git", rev = "283d0e74a8050ea625da25e0b9180b65f11d1843", features = [
+  "tokio",
+] }
 tokio = "1.46.0"
 rdict_core = { path = "../rdict-core" }
 directories-next = "2.0.0"
