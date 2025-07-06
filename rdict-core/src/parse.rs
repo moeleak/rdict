@@ -55,7 +55,7 @@ pub enum TranslationData {
 pub fn to_chinese(input_text: &str, html: &str) -> Result<ToChinese> {
     let document = Html::parse_document(html);
     let mut result = ToChinese {
-        input_text: input_text.to_string(),
+        input_text: input_text.to_owned(),
         ..Default::default()
     };
 
@@ -162,7 +162,7 @@ pub fn to_chinese(input_text: &str, html: &str) -> Result<ToChinese> {
 pub fn to_english(input_text: &str, html: &str) -> Result<ToEnglish> {
     let document = Html::parse_document(html);
     let mut result = ToEnglish {
-        input_text: input_text.to_string(),
+        input_text: input_text.to_owned(),
         ..Default::default()
     };
 

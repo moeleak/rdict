@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod args;
+mod pager;
 
 use crate::args::Args;
 use anyhow::{Context, Result, ensure};
@@ -120,7 +121,7 @@ impl App {
             let spinner = ProgressBar::new_spinner();
             spinner.set_message("Fetching data...");
             spinner.enable_steady_tick(Duration::from_millis(100));
-            #[allow(clippy::literal_string_with_formatting_args)]
+            #[expect(clippy::literal_string_with_formatting_args)]
             spinner.set_style(
                 ProgressStyle::default_spinner()
                     .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
@@ -155,19 +156,35 @@ impl App {
                     _ => unreachable!(),
                 };
 
-                let indented = output
+                let mut indented_output = output
                     .lines()
                     .map(|line| format!("  {line}"))
                     .collect::<Vec<_>>()
                     .join("\n");
 
-                println!("\n{indented}\n");
-
                 if result.is_cached {
-                    println!(
-                        "  {}\n",
+                    indented_output.push_str(&format!(
+                        "\n\n  {}",
                         format!("[ {input_text} ] From cache").bright_black()
-                    );
+                    ));
+                }
+
+                let indented_output = format!("\n{indented_output}\n");
+
+                // If window is too small, output the result in a pager
+                let size =
+                    crossterm::terminal::window_size().context("Failed to get terminal size")?;
+                // NOTE: Removed 4 lines for shell prompt.
+                if size.rows - 4 < indented_output.lines().count() as u16 {
+                    let mut terminal = ratatui::init();
+                    (pager::Pager {
+                        text: indented_output,
+                        ..Default::default()
+                    })
+                    .run(&mut terminal)?;
+                    ratatui::restore();
+                } else {
+                    println!("{indented_output}");
                 }
             }
             Format::Json => println!("{}", serde_json::to_string_pretty(&result.data)?),
