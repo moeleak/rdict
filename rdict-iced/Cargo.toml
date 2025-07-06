@@ -16,3 +16,4 @@ iced = { git = "https://github.com/iced-rs/iced.git", rev = "283d0e74a8050ea625d
 tokio = "1.46.0"
 rdict_core = { path = "../rdict-core" }
 directories-next = "2.0.0"
+dark-light = "2.0.0"

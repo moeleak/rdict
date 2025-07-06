@@ -2,13 +2,15 @@
 // * Better font rendering.
 // * Don't use plain text to show result.
 // * App icon.
-// * Styling & auto dark mode.
+// * Styling & theme configuration.
+// * Dynamic auto dark mode.
 // * Polish the UI
 //   e.g. tooltips, colors, shadows, popups.
 // * Add more features like history, favorites, etc.
 // * Add tests.
 
 use anyhow::{Context, Result};
+use dark_light::Mode;
 use directories_next::ProjectDirs;
 use iced::widget::{button, column, row, scrollable, text, text_input};
 use iced::window::Settings;
@@ -40,7 +42,11 @@ fn main() -> Result<()> {
             decorations: true,
             ..Settings::default()
         })
-        .theme(|_| Theme::GruvboxDark)
+        .theme(|_| match dark_light::detect().unwrap_or(Mode::Unspecified) {
+            Mode::Light => Theme::GruvboxLight,
+            Mode::Dark => Theme::GruvboxDark,
+            Mode::Unspecified => Theme::GruvboxLight,
+        })
         .run()?;
 
     Ok(())

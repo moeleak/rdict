@@ -4133,6 +4133,7 @@ name = "rdict_iced"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dark-light",
  "directories-next",
  "iced",
  "rdict_core",
