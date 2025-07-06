@@ -418,11 +418,11 @@ mod tests {
 
     #[test]
     fn test_contains_cjk_empty() {
-        assert!(contains_cjk("").is_err());
+        contains_cjk("").unwrap_err();
     }
 
     #[tokio::test]
-    #[allow(clippy::significant_drop_tightening)]
+    #[expect(clippy::significant_drop_tightening)]
     async fn test_fetch_text_html_success_with_mock_server() {
         let mut server = Server::new_async().await;
 

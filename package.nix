@@ -8,7 +8,7 @@ rec {
     src = lib.cleanSource ./.;
 
     useFetchCargoVendor = true;
-    cargoHash = "sha256-HUiaouXxbbngsY9NghVTPh/8fNLUkMEuhNLyylVc5t0=";
+    cargoHash = "sha256-Oi1N29W7PzO4qucJ9ggTH/tLT6Tvd5Yx5+P1UwaIN4w=";
 
     buildAndTestSubdir = "./rdict-cli";
 
@@ -29,7 +29,7 @@ rec {
     src = lib.cleanSource ./.;
 
     useFetchCargoVendor = true;
-    cargoHash = "sha256-HUiaouXxbbngsY9NghVTPh/8fNLUkMEuhNLyylVc5t0=";
+    cargoHash = "sha256-Oi1N29W7PzO4qucJ9ggTH/tLT6Tvd5Yx5+P1UwaIN4w=";
 
     buildAndTestSubdir = "./rdict-telegram";
 
