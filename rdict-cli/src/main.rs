@@ -172,10 +172,10 @@ impl App {
                 let indented_output = format!("\n{indented_output}\n");
 
                 // If window is too small, output the result in a pager
-                let size =
-                    crossterm::terminal::window_size().context("Failed to get terminal size")?;
+                let (_, height) =
+                    crossterm::terminal::size().context("Failed to get terminal size")?;
                 // NOTE: Removed 4 lines for shell prompt.
-                if size.rows - 4 < indented_output.lines().count() as u16 {
+                if height - 4 < indented_output.lines().count() as u16 {
                     let mut terminal = ratatui::init();
                     (pager::Pager {
                         text: indented_output,
