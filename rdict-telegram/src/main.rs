@@ -83,10 +83,10 @@ async fn handle_command(bot: Bot, msg: Message, cmd: Command, client: Arc<Rdict>
 
     // TODO: Use `Dispatcher`'s `handle_error`.
     if let Err(e) = res {
-        log::error!("{e:?}");
+        log::error!("{e}");
         bot.send_message(
             msg.chat.id,
-            format!("❌ An error occurred. Please try again later.\n\nErr: {e}"),
+            format!("❌ An error occurred. Please try again later.\n\n{e:?}"),
         )
         .await
         .ok();
