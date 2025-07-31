@@ -1,6 +1,11 @@
-{ lib, rustPlatform }:
+{
+  lib,
+  stdenv,
+  rustPlatform,
+  installShellFiles,
+}:
 let
-  cargoHash = "sha256-9AsvTTPM4ru88DGIHkxSWfhBEsRhovTQoWNHUUKpllE=";
+  cargoHash = "sha256-Bzy77XM3DxNWjmD/3jIDfpwPPhqucj0CHj2266tXoTE=";
 in
 rec {
   default = rdict;
@@ -14,8 +19,19 @@ rec {
 
     buildAndTestSubdir = "./rdict-cli";
 
+    nativeBuildInputs = lib.optionals (stdenv.buildPlatform.canExecute stdenv.hostPlatform) [
+      installShellFiles
+    ];
+
     preCheck = ''
       export HOME="$(mktemp -d)"
+    '';
+
+    postInstall = lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
+      installShellCompletion --cmd rdict \
+        --bash <("$out/bin/rdict" --completion bash) \
+        --zsh <("$out/bin/rdict" --completion zsh) \
+        --fish <("$out/bin/rdict" --completion fish)
     '';
 
     meta = {

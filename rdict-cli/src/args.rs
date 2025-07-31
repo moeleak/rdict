@@ -1,16 +1,21 @@
 use clap::Parser;
+use clap_complete::Shell;
 
-#[derive(Debug, Parser)]
-#[command(version, about, long_about = None)]
-pub struct Args {
+#[derive(Parser)]
+#[command(name = "rdict", version, about, long_about = None)]
+pub(crate) struct Args {
     #[arg(value_name = "TEXT")]
-    pub input_text: Option<String>,
+    pub(crate) input_text: Option<String>,
 
-    /// Cache translations
+    /// Disable translation caches
     #[arg(long)]
-    pub no_cache: bool,
+    pub(crate) no_cache: bool,
 
     /// Output using JSON
     #[arg(long)]
-    pub json: bool,
+    pub(crate) json: bool,
+
+    /// Generate shell completions
+    #[arg(long)]
+    pub(crate) completion: Option<Shell>,
 }
