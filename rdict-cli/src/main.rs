@@ -5,7 +5,8 @@ mod pager;
 
 use crate::args::Args;
 use anyhow::{Context, Result, ensure};
-use clap::Parser;
+use clap::{CommandFactory, Parser};
+use clap_complete::generate;
 use directories_next::ProjectDirs;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::info;
@@ -199,6 +200,15 @@ async fn main() -> Result<()> {
     env_logger::init();
 
     let cli = Args::parse();
+
+    // Generate shell completions
+    if let Some(generator) = cli.completion {
+        let mut cmd = Args::command();
+        let name = cmd.get_name().to_string();
+        generate(generator, &mut cmd, &name, &mut io::stdout());
+        return Ok(());
+    };
+
     let app = App::new(cli).await?;
     app.run().await
 }
