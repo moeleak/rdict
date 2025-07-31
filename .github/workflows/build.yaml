@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        BUILD_TARGET: [release]
+        BUILD_TARGET: [dev]
     outputs:
       release_built: ${{ steps.set-output.outputs.release_built }}
     steps:
