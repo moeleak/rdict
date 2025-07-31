@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        BUILD_TARGET: [release]
+        BUILD_TARGET: [dev]
     outputs:
       release_built: ${{ steps.set-output.outputs.release_built }}
     steps:
@@ -30,3 +30,8 @@ jobs:
         run: cargo build --profile ${{ matrix.BUILD_TARGET }}
       - name: Run tests in "${{ matrix.BUILD_TARGET }}" mode
         run: cargo test --profile ${{ matrix.BUILD_TARGET }}
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: rdict
+          path: target/debug/rdict
