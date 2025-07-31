@@ -1,4 +1,5 @@
 use anyhow::{Result, ensure};
+use once_cell::sync::Lazy;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 
@@ -45,6 +46,26 @@ pub enum TranslationData {
     ToEnglish(ToEnglish),
 }
 
+macro_rules! selector {
+    ($css:expr) => {
+        Lazy::new(|| Selector::parse($css).expect(concat!("Invalid selector: ", $css)))
+    };
+}
+
+#[rustfmt::skip]
+mod selectors {
+    use super::*;
+
+    pub static PRONUNCIATION_SELECTOR:          Lazy<Selector> = selector!(".phone_con .per-phone .phonetic");
+    pub static MEANINGS_SELECTOR:               Lazy<Selector> = selector!(".trans-container .basic .word-exp");
+    pub static DEFINITIONS_SELECTOR:            Lazy<Selector> = selector!(".trans");
+    pub static PART_OF_SPEECH_SELECTOR:         Lazy<Selector> = selector!(".pos");
+    pub static EXAMPLE_SELECTOR:                Lazy<Selector> = selector!(".trans-container .mcols-layout .col2");
+    pub static EN_SELECTOR:                     Lazy<Selector> = selector!(".sen-eng");
+    pub static ZH_SELECTOR:                     Lazy<Selector> = selector!(".sen-ch");
+    pub static TO_ENGLISH_TRANSLATION_SELECTOR: Lazy<Selector> = selector!(".trans-container .basic .col2 .point");
+}
+
 /// Parses English, returns Chinese
 ///
 /// # Errors
@@ -59,11 +80,11 @@ pub fn to_chinese(input_text: &str, html: &str) -> Result<ToChinese> {
         ..Default::default()
     };
 
-    // Pronunciation
-    let pronunciation_selector = Selector::parse(".phone_con .per-phone .phonetic")
-        .map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
-
-    for (i, element) in document.select(&pronunciation_selector).take(2).enumerate() {
+    for (i, element) in document
+        .select(&selectors::PRONUNCIATION_SELECTOR)
+        .take(2)
+        .enumerate()
+    {
         let text = element
             .text()
             .collect::<String>()
@@ -80,22 +101,14 @@ pub fn to_chinese(input_text: &str, html: &str) -> Result<ToChinese> {
         }
     }
 
-    // Translations
-    let meanings_selector = Selector::parse(".trans-container .basic .word-exp")
-        .map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
-    let definitions_selector =
-        Selector::parse(".trans").map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
-    let part_of_speech_selector =
-        Selector::parse(".pos").map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
-
-    for element in document.select(&meanings_selector) {
+    for element in document.select(&selectors::MEANINGS_SELECTOR) {
         let part_of_speech = element
-            .select(&part_of_speech_selector)
+            .select(&selectors::PART_OF_SPEECH_SELECTOR)
             .next()
             .map(|e| e.text().collect::<String>().trim().to_owned());
 
         let definitions: Vec<String> = element
-            .select(&definitions_selector)
+            .select(&selectors::DEFINITIONS_SELECTOR)
             .next()
             .map(|e| {
                 e.text()
@@ -116,22 +129,15 @@ pub fn to_chinese(input_text: &str, html: &str) -> Result<ToChinese> {
     }
 
     // Example sentences
-    let example_selector = Selector::parse(".trans-container .mcols-layout .col2")
-        .map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
-    let en_selector =
-        Selector::parse(".sen-eng").map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
-    let zh_selector =
-        Selector::parse(".sen-ch").map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
-
-    for element in document.select(&example_selector) {
+    for element in document.select(&selectors::EXAMPLE_SELECTOR) {
         let en = element
-            .select(&en_selector)
+            .select(&selectors::EN_SELECTOR)
             .next()
             .map(|e| e.text().collect::<String>().trim().to_owned())
             .unwrap_or_default();
 
         let zh = element
-            .select(&zh_selector)
+            .select(&selectors::ZH_SELECTOR)
             .next()
             .map(|e| e.text().collect::<String>().trim().to_owned())
             .unwrap_or_default();
@@ -167,9 +173,7 @@ pub fn to_english(input_text: &str, html: &str) -> Result<ToEnglish> {
     };
 
     // Meanings
-    let translation_selector = Selector::parse(".trans-container .basic .col2 .point")
-        .map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
-    for element in document.select(&translation_selector) {
+    for element in document.select(&selectors::TO_ENGLISH_TRANSLATION_SELECTOR) {
         let text = element.text().collect::<String>().trim().to_owned();
         if !text.is_empty() {
             result.meanings.push(text);
@@ -177,22 +181,16 @@ pub fn to_english(input_text: &str, html: &str) -> Result<ToEnglish> {
     }
 
     // Example sentences
-    let example_selector = Selector::parse(".trans-container .mcols-layout .col2")
-        .map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
-    let en_selector =
-        Selector::parse(".sen-eng").map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
-    let zh_selector =
-        Selector::parse(".sen-ch").map_err(|e| anyhow::anyhow!("Selector parse error: {}", e))?;
 
-    for element in document.select(&example_selector) {
+    for element in document.select(&selectors::EXAMPLE_SELECTOR) {
         let en = element
-            .select(&en_selector)
+            .select(&selectors::EN_SELECTOR)
             .next()
             .map(|el| el.text().collect::<String>().trim().to_owned())
             .unwrap_or_default();
 
         let zh = element
-            .select(&zh_selector)
+            .select(&selectors::ZH_SELECTOR)
             .next()
             .map(|el| el.text().collect::<String>().trim().to_owned())
             .unwrap_or_default();
