@@ -57,13 +57,13 @@ impl Rdict {
             if should_init_db {
                 let init_statements = [
                     "CREATE TABLE to_english_results (
-                    text TEXT PRIMARY KEY,
-                    data TEXT NOT NULL
-                );",
+                        text TEXT PRIMARY KEY,
+                        data TEXT NOT NULL
+                    );",
                     "CREATE TABLE to_chinese_results (
-                    text TEXT PRIMARY KEY,
-                    data TEXT NOT NULL
-                );",
+                        text TEXT PRIMARY KEY,
+                        data TEXT NOT NULL
+                    );",
                 ];
 
                 for statement in init_statements {
@@ -207,6 +207,7 @@ fn contains_cjk(text: &str) -> Result<bool, Error> {
         .any(|ch| ('\u{4E00}'..='\u{9FFF}').contains(&ch)))
 }
 
+#[must_use]
 pub fn render_chinese_colored(result: &ToChinese) -> String {
     let mut output = String::new();
 
@@ -249,6 +250,7 @@ pub fn render_chinese_colored(result: &ToChinese) -> String {
     output.trim_end().to_string()
 }
 
+#[must_use]
 pub fn render_english_colored(result: &ToEnglish) -> String {
     let mut output = String::new();
 
@@ -272,6 +274,7 @@ pub fn render_english_colored(result: &ToEnglish) -> String {
     output.trim_end().to_string()
 }
 
+#[must_use]
 pub fn render_chinese_plain(result: &ToChinese) -> String {
     let mut output = String::new();
 
@@ -314,6 +317,7 @@ pub fn render_chinese_plain(result: &ToChinese) -> String {
     output.trim_end().to_string()
 }
 
+#[must_use]
 pub fn render_english_plain(result: &ToEnglish) -> String {
     let mut output = String::new();
 

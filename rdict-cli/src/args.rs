@@ -3,7 +3,7 @@ use clap_complete::Shell;
 
 #[derive(Parser)]
 #[command(name = "rdict", version, about, long_about = None)]
-pub(crate) struct Args {
+pub struct Args {
     #[arg(value_name = "TEXT")]
     pub(crate) input_text: Vec<String>,
 

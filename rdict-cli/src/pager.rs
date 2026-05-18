@@ -48,18 +48,18 @@ impl Pager {
             // FIXME: hardcoded value, replace 4 with screen height
             (KeyCode::Char('j'), KeyModifiers::NONE)
             | (KeyCode::Down, KeyModifiers::NONE)
-            | (KeyCode::Char('n'), KeyModifiers::CONTROL) => {
-                if self.vertical_scroll + 4 < self.text.lines().count() {
-                    self.vertical_scroll += 1;
-                }
+            | (KeyCode::Char('n'), KeyModifiers::CONTROL)
+                if self.vertical_scroll + 4 < self.text.lines().count() =>
+            {
+                self.vertical_scroll += 1;
             }
 
             (KeyCode::Char('k'), KeyModifiers::NONE)
             | (KeyCode::Up, KeyModifiers::NONE)
-            | (KeyCode::Char('p'), KeyModifiers::CONTROL) => {
-                if self.vertical_scroll > 0 {
-                    self.vertical_scroll -= 1;
-                }
+            | (KeyCode::Char('p'), KeyModifiers::CONTROL)
+                if self.vertical_scroll > 0 =>
+            {
+                self.vertical_scroll -= 1;
             }
 
             _ => {}
