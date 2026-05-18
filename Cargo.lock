@@ -2663,7 +2663,7 @@ dependencies = [
 
 [[package]]
 name = "rdict_cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -2689,7 +2689,7 @@ dependencies = [
 
 [[package]]
 name = "rdict_core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "assert_cmd",
  "log",
@@ -2707,7 +2707,7 @@ dependencies = [
 
 [[package]]
 name = "rdict_telegram"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "env_logger",

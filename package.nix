@@ -3,29 +3,27 @@
   stdenv,
   rustPlatform,
   installShellFiles,
+  writableTmpDirAsHomeHook,
 }:
 let
-  cargoHash = "sha256-wTBhT742O0UZ4IEXOkwpTP1Ngs25kuKtqgSFxXJVUDg=";
+  version = "0.3.0";
+  src = lib.cleanSource ./.;
+  cargoHash = "sha256-DF3LxDMXkYZoZHIbt/cV98HpxKcnlS1OnxALzoiWhJA=";
 in
 rec {
   default = rdict;
+
   rdict = rustPlatform.buildRustPackage {
-    inherit cargoHash;
+    inherit version src cargoHash;
 
     pname = "rdict";
-    version = "0.2.0";
-
-    src = lib.cleanSource ./.;
 
     buildAndTestSubdir = "./rdict-cli";
 
     nativeBuildInputs = lib.optionals (stdenv.buildPlatform.canExecute stdenv.hostPlatform) [
       installShellFiles
+      writableTmpDirAsHomeHook
     ];
-
-    preCheck = ''
-      export HOME="$(mktemp -d)"
-    '';
 
     postInstall = lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
       installShellCompletion --cmd rdict \
@@ -41,18 +39,15 @@ rec {
   };
 
   rdict-telegram = rustPlatform.buildRustPackage {
-    inherit cargoHash;
+    inherit version src cargoHash;
 
     pname = "rdict-telegram";
-    version = "0.2.0";
 
-    src = lib.cleanSource ./.;
+    nativeBuildInputs = lib.optionals (stdenv.buildPlatform.canExecute stdenv.hostPlatform) [
+      writableTmpDirAsHomeHook
+    ];
 
     buildAndTestSubdir = "./rdict-telegram";
-
-    preCheck = ''
-      export HOME="$(mktemp -d)"
-    '';
 
     meta = {
       license = lib.licenses.mit;
