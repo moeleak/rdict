@@ -5,7 +5,7 @@
   installShellFiles,
 }:
 let
-  cargoHash = "sha256-Bzy77XM3DxNWjmD/3jIDfpwPPhqucj0CHj2266tXoTE=";
+  cargoHash = "sha256-wTBhT742O0UZ4IEXOkwpTP1Ngs25kuKtqgSFxXJVUDg=";
 in
 rec {
   default = rdict;

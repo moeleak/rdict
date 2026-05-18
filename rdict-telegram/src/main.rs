@@ -58,10 +58,8 @@ async fn handle_command(bot: Bot, msg: Message, cmd: Command, client: Arc<Rdict>
                 .context("Failed to get translation results")?;
 
             let output = match result.data {
-                TranslationData::ToChinese(tc) => rdict::render_chinese_plain(&tc)
-                    .context("Failed to render Chinese translation")?,
-                TranslationData::ToEnglish(te) => rdict::render_english_plain(&te)
-                    .context("Failed to render English translation")?,
+                TranslationData::ToChinese(tc) => rdict::render_chinese_plain(&tc),
+                TranslationData::ToEnglish(te) => rdict::render_english_plain(&te),
             };
 
             let wrapped_output = format!(

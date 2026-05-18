@@ -1,5 +1,4 @@
-use anyhow::{Result, ensure};
-use once_cell::sync::Lazy;
+use crate::Error;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 
@@ -48,33 +47,36 @@ pub enum TranslationData {
 
 macro_rules! selector {
     ($css:expr) => {
-        Lazy::new(|| Selector::parse($css).expect(concat!("Invalid selector: ", $css)))
+        // Selectors are parsed at runtime...
+        LazyLock::new(|| Selector::parse($css).expect(concat!("Invalid selector: ", $css)))
     };
 }
 
 #[rustfmt::skip]
 mod selectors {
-    use super::*;
+    use std::sync::LazyLock;
 
-    pub static PRONUNCIATION_SELECTOR:          Lazy<Selector> = selector!(".phone_con .per-phone .phonetic");
-    pub static MEANINGS_SELECTOR:               Lazy<Selector> = selector!(".trans-container .basic .word-exp");
-    pub static DEFINITIONS_SELECTOR:            Lazy<Selector> = selector!(".trans");
-    pub static PART_OF_SPEECH_SELECTOR:         Lazy<Selector> = selector!(".pos");
-    pub static EXAMPLE_SELECTOR:                Lazy<Selector> = selector!(".trans-container .mcols-layout .col2");
-    pub static EN_SELECTOR:                     Lazy<Selector> = selector!(".sen-eng");
-    pub static ZH_SELECTOR:                     Lazy<Selector> = selector!(".sen-ch");
-    pub static TO_ENGLISH_TRANSLATION_SELECTOR: Lazy<Selector> = selector!(".trans-container .basic .col2 .point");
+    use super::Selector;
+
+    pub static BODY_SELECTOR:                   LazyLock<Selector> = selector!(".search_result-dict");
+    pub static PRONUNCIATION_SELECTOR:          LazyLock<Selector> = selector!(".phone_con .per-phone .phonetic");
+    pub static MEANINGS_SELECTOR:               LazyLock<Selector> = selector!(".trans-container .basic .word-exp");
+    pub static DEFINITIONS_SELECTOR:            LazyLock<Selector> = selector!(".trans");
+    pub static PART_OF_SPEECH_SELECTOR:         LazyLock<Selector> = selector!(".pos");
+    pub static EXAMPLE_SELECTOR:                LazyLock<Selector> = selector!(".trans-container .mcols-layout .col2");
+    pub static EN_SELECTOR:                     LazyLock<Selector> = selector!(".sen-eng");
+    pub static ZH_SELECTOR:                     LazyLock<Selector> = selector!(".sen-ch");
+    pub static TO_ENGLISH_TRANSLATION_SELECTOR: LazyLock<Selector> = selector!(".trans-container .basic .col2 .point");
 }
 
 /// Parses English, returns Chinese
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - Parsing the CSS selectors fails.
-/// - No matching results are found in the parsed document.
-pub fn to_chinese(input_text: &str, html: &str) -> Result<ToChinese> {
-    let document = Html::parse_document(html);
+pub fn to_chinese(input_text: &str, html: &str) -> std::result::Result<ToChinese, Error> {
+    let binding = Html::parse_document(html);
+    let document = binding
+        .select(&selectors::BODY_SELECTOR)
+        .next()
+        .ok_or(Error::Parse("no .search_result-dict found".into()))?;
+
     let mut result = ToChinese {
         input_text: input_text.to_owned(),
         ..Default::default()
@@ -147,26 +149,25 @@ pub fn to_chinese(input_text: &str, html: &str) -> Result<ToChinese> {
         }
     }
 
-    ensure!(
-        !result.examples.is_empty()
-            || !result.meanings.is_empty()
-            || result.pronunciation.uk.is_some()
-            || result.pronunciation.us.is_some(),
-        "No translation results found for English to Chinese"
-    );
+    if result.examples.is_empty()
+        && result.meanings.is_empty()
+        && result.pronunciation.uk.is_none()
+        && result.pronunciation.us.is_none()
+    {
+        return Err(Error::NoTranslationResults);
+    }
 
     Ok(result)
 }
 
 /// Parses Chinese, returns English
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - Parsing the CSS selectors fails.
-/// - No matching results are found in the parsed document.
-pub fn to_english(input_text: &str, html: &str) -> Result<ToEnglish> {
-    let document = Html::parse_document(html);
+pub fn to_english(input_text: &str, html: &str) -> std::result::Result<ToEnglish, Error> {
+    let binding = Html::parse_document(html);
+    let document = binding
+        .select(&selectors::BODY_SELECTOR)
+        .next()
+        .ok_or(Error::Parse("no .search_result-dict found".into()))?;
+
     let mut result = ToEnglish {
         input_text: input_text.to_owned(),
         ..Default::default()
@@ -181,7 +182,6 @@ pub fn to_english(input_text: &str, html: &str) -> Result<ToEnglish> {
     }
 
     // Example sentences
-
     for element in document.select(&selectors::EXAMPLE_SELECTOR) {
         let en = element
             .select(&selectors::EN_SELECTOR)
@@ -200,10 +200,9 @@ pub fn to_english(input_text: &str, html: &str) -> Result<ToEnglish> {
         }
     }
 
-    ensure!(
-        !result.examples.is_empty() || !result.meanings.is_empty(),
-        "No translation results found for Chinese To English"
-    );
+    if result.examples.is_empty() && result.meanings.is_empty() {
+        return Err(Error::NoTranslationResults);
+    }
 
     Ok(result)
 }
