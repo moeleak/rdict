@@ -2427,7 +2427,6 @@ dependencies = [
  "assert_cmd",
  "log",
  "mockito",
- "once_cell",
  "owo-colors",
  "predicates",
  "reqwest",

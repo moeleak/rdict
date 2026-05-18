@@ -1,5 +1,4 @@
 use crate::Error;
-use once_cell::sync::Lazy;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 
@@ -48,22 +47,24 @@ pub enum TranslationData {
 
 macro_rules! selector {
     ($css:expr) => {
-        Lazy::new(|| Selector::parse($css).expect(concat!("Invalid selector: ", $css)))
+        LazyLock::new(|| Selector::parse($css).expect(concat!("Invalid selector: ", $css)))
     };
 }
 
 #[rustfmt::skip]
 mod selectors {
-    use super::*;
+    use std::sync::LazyLock;
 
-    pub static PRONUNCIATION_SELECTOR:          Lazy<Selector> = selector!(".phone_con .per-phone .phonetic");
-    pub static MEANINGS_SELECTOR:               Lazy<Selector> = selector!(".trans-container .basic .word-exp");
-    pub static DEFINITIONS_SELECTOR:            Lazy<Selector> = selector!(".trans");
-    pub static PART_OF_SPEECH_SELECTOR:         Lazy<Selector> = selector!(".pos");
-    pub static EXAMPLE_SELECTOR:                Lazy<Selector> = selector!(".trans-container .mcols-layout .col2");
-    pub static EN_SELECTOR:                     Lazy<Selector> = selector!(".sen-eng");
-    pub static ZH_SELECTOR:                     Lazy<Selector> = selector!(".sen-ch");
-    pub static TO_ENGLISH_TRANSLATION_SELECTOR: Lazy<Selector> = selector!(".trans-container .basic .col2 .point");
+    use super::Selector;
+
+    pub static PRONUNCIATION_SELECTOR:          LazyLock<Selector> = selector!(".phone_con .per-phone .phonetic");
+    pub static MEANINGS_SELECTOR:               LazyLock<Selector> = selector!(".trans-container .basic .word-exp");
+    pub static DEFINITIONS_SELECTOR:            LazyLock<Selector> = selector!(".trans");
+    pub static PART_OF_SPEECH_SELECTOR:         LazyLock<Selector> = selector!(".pos");
+    pub static EXAMPLE_SELECTOR:                LazyLock<Selector> = selector!(".trans-container .mcols-layout .col2");
+    pub static EN_SELECTOR:                     LazyLock<Selector> = selector!(".sen-eng");
+    pub static ZH_SELECTOR:                     LazyLock<Selector> = selector!(".sen-ch");
+    pub static TO_ENGLISH_TRANSLATION_SELECTOR: LazyLock<Selector> = selector!(".trans-container .basic .col2 .point");
 }
 
 /// Parses English, returns Chinese
