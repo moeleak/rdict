@@ -47,6 +47,7 @@ pub enum TranslationData {
 
 macro_rules! selector {
     ($css:expr) => {
+        // Selectors are parsed at runtime...
         LazyLock::new(|| Selector::parse($css).expect(concat!("Invalid selector: ", $css)))
     };
 }
@@ -57,6 +58,7 @@ mod selectors {
 
     use super::Selector;
 
+    pub static BODY_SELECTOR:                   LazyLock<Selector> = selector!(".search_result-dict");
     pub static PRONUNCIATION_SELECTOR:          LazyLock<Selector> = selector!(".phone_con .per-phone .phonetic");
     pub static MEANINGS_SELECTOR:               LazyLock<Selector> = selector!(".trans-container .basic .word-exp");
     pub static DEFINITIONS_SELECTOR:            LazyLock<Selector> = selector!(".trans");
@@ -69,7 +71,12 @@ mod selectors {
 
 /// Parses English, returns Chinese
 pub fn to_chinese(input_text: &str, html: &str) -> std::result::Result<ToChinese, Error> {
-    let document = Html::parse_document(html);
+    let binding = Html::parse_document(html);
+    let document = binding
+        .select(&selectors::BODY_SELECTOR)
+        .next()
+        .ok_or(Error::Parse("no .search_result-dict found".into()))?;
+
     let mut result = ToChinese {
         input_text: input_text.to_owned(),
         ..Default::default()
@@ -155,7 +162,12 @@ pub fn to_chinese(input_text: &str, html: &str) -> std::result::Result<ToChinese
 
 /// Parses Chinese, returns English
 pub fn to_english(input_text: &str, html: &str) -> std::result::Result<ToEnglish, Error> {
-    let document = Html::parse_document(html);
+    let binding = Html::parse_document(html);
+    let document = binding
+        .select(&selectors::BODY_SELECTOR)
+        .next()
+        .ok_or(Error::Parse("no .search_result-dict found".into()))?;
+
     let mut result = ToEnglish {
         input_text: input_text.to_owned(),
         ..Default::default()
@@ -170,7 +182,6 @@ pub fn to_english(input_text: &str, html: &str) -> std::result::Result<ToEnglish
     }
 
     // Example sentences
-
     for element in document.select(&selectors::EXAMPLE_SELECTOR) {
         let en = element
             .select(&selectors::EN_SELECTOR)

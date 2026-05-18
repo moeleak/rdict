@@ -17,6 +17,9 @@ pub enum Error {
     #[error("No translation results")]
     NoTranslationResults,
 
+    #[error("Failed to parse response: {0}")]
+    Parse(String),
+
     // Third Party
     #[error("HTTP request failed: {0}")]
     Http(#[from] reqwest::Error),
