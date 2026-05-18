@@ -12,8 +12,8 @@ readme.workspace = true
 path = "src/lib.rs"
 
 [dependencies]
-anyhow = "1.0.98"
 owo-colors = "4.2.0"
+thiserror = "2"
 reqwest = { version = "0.12.15", features = [
   "blocking",
   "json",

@@ -1,4 +1,4 @@
-use anyhow::{Result, ensure};
+use crate::Error;
 use once_cell::sync::Lazy;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
@@ -67,13 +67,7 @@ mod selectors {
 }
 
 /// Parses English, returns Chinese
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - Parsing the CSS selectors fails.
-/// - No matching results are found in the parsed document.
-pub fn to_chinese(input_text: &str, html: &str) -> Result<ToChinese> {
+pub fn to_chinese(input_text: &str, html: &str) -> std::result::Result<ToChinese, Error> {
     let document = Html::parse_document(html);
     let mut result = ToChinese {
         input_text: input_text.to_owned(),
@@ -147,25 +141,19 @@ pub fn to_chinese(input_text: &str, html: &str) -> Result<ToChinese> {
         }
     }
 
-    ensure!(
-        !result.examples.is_empty()
-            || !result.meanings.is_empty()
-            || result.pronunciation.uk.is_some()
-            || result.pronunciation.us.is_some(),
-        "No translation results found for English to Chinese"
-    );
+    if result.examples.is_empty()
+        && result.meanings.is_empty()
+        && result.pronunciation.uk.is_none()
+        && result.pronunciation.us.is_none()
+    {
+        return Err(Error::NoTranslationResults);
+    }
 
     Ok(result)
 }
 
 /// Parses Chinese, returns English
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - Parsing the CSS selectors fails.
-/// - No matching results are found in the parsed document.
-pub fn to_english(input_text: &str, html: &str) -> Result<ToEnglish> {
+pub fn to_english(input_text: &str, html: &str) -> std::result::Result<ToEnglish, Error> {
     let document = Html::parse_document(html);
     let mut result = ToEnglish {
         input_text: input_text.to_owned(),
@@ -200,10 +188,9 @@ pub fn to_english(input_text: &str, html: &str) -> Result<ToEnglish> {
         }
     }
 
-    ensure!(
-        !result.examples.is_empty() || !result.meanings.is_empty(),
-        "No translation results found for Chinese To English"
-    );
+    if result.examples.is_empty() && result.meanings.is_empty() {
+        return Err(Error::NoTranslationResults);
+    }
 
     Ok(result)
 }

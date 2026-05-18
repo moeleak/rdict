@@ -1,5 +1,5 @@
+use crate::Error;
 use crate::parse::{ToChinese, ToEnglish, TranslationData, to_chinese, to_english};
-use anyhow::{Context, Result, ensure};
 use log::{debug, info};
 use owo_colors::OwoColorize;
 use reqwest::Client;
@@ -8,6 +8,8 @@ use sqlx::migrate::MigrateDatabase;
 use sqlx::sqlite::SqlitePool;
 use std::fmt::Write;
 use std::fs;
+
+type CacheVariant = (&'static str, fn(String) -> Result<TranslationData, Error>);
 
 pub struct Rdict {
     client: Client,
@@ -31,36 +33,26 @@ pub struct FetchedResult {
 }
 
 impl Rdict {
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - Creating the parent directory for the database path fails.
-    /// - Converting the database path to a string fails.
-    /// - Checking for database existence or creating the database fails.
-    /// - Connecting to the `SQLite` database fails.
-    /// - Executing SQL statements to initialize the cache tables fails.
-    /// - Any I/O or database operation fails during setup.
-    pub async fn new(base_url: &str, cache_db_path: Option<std::path::PathBuf>) -> Result<Self> {
+    pub async fn new(
+        base_url: &str,
+        cache_db_path: Option<std::path::PathBuf>,
+    ) -> Result<Self, Error> {
         let pool: Option<SqlitePool> = if let Some(db_path) = cache_db_path {
             let should_init_db = !db_path.exists();
 
             if let Some(parent) = db_path.parent() {
-                fs::create_dir_all(parent).with_context(|| {
-                    format!("Failed to create cache directory at {:?}", parent.display())
-                })?;
+                fs::create_dir_all(parent)?;
             }
 
-            let db_url = db_path.to_str().with_context(|| {
-                format!("Failed to convert path to string: {}", db_path.display())
-            })?;
+            let db_url = db_path
+                .to_str()
+                .ok_or_else(|| Error::InvalidDatabasePath(db_path.clone()))?;
 
             if !sqlx::Sqlite::database_exists(db_url).await? {
                 sqlx::Sqlite::create_database(db_url).await?;
             }
 
-            let pool = SqlitePool::connect(db_url)
-                .await
-                .with_context(|| format!("Failed to open database at {}", db_path.display()))?;
+            let pool = SqlitePool::connect(db_url).await?;
 
             if should_init_db {
                 let init_statements = [
@@ -75,15 +67,7 @@ impl Rdict {
                 ];
 
                 for statement in init_statements {
-                    sqlx::query(statement)
-                        .execute(&pool)
-                        .await
-                        .with_context(|| {
-                            format!(
-                                "Failed to initialize SQLite cache database: {}",
-                                db_path.display()
-                            )
-                        })?;
+                    sqlx::query(statement).execute(&pool).await?;
                 }
             }
 
@@ -99,28 +83,13 @@ impl Rdict {
         })
     }
 
-    /// # Errors
-    ///
-    /// Returns an error if:
-    ///
-    /// - Determining if the input is CJK fails (`contains_cjk` fails).
-    /// - Querying or modifying the cache database fails (`sqlx` errors).
-    /// - Fetching the HTML page from the web fails.
-    /// - Parsing the HTML into translation data fails.
-    /// - Serializing the translation result to JSON fails.
-    /// - Inserting the result into the cache database fails.
-    ///
-    /// # Panics
-    ///
-    /// Panics if:
-    /// - Cached JSON string exists but is malformed.
-    pub async fn get_results(&self, input_text: &str) -> Result<FetchedResult> {
+    pub async fn get_results(&self, input_text: &str) -> Result<FetchedResult, Error> {
         let is_cjk = contains_cjk(input_text)?;
         debug!("Getting result. input_text: {input_text}, is_cjk: {is_cjk}");
 
         // Try cache first
         if let Some(pool) = &self.pool {
-            let (table, variant): (&str, fn(String) -> Result<TranslationData>) = if is_cjk {
+            let (table, variant): CacheVariant = if is_cjk {
                 debug!("Caching enabled, trying fetch data from cache.");
                 ("to_english_results", |v| {
                     Ok(TranslationData::ToEnglish(serde_json::from_str(&v)?))
@@ -135,14 +104,7 @@ impl Rdict {
             let delete_row = async || {
                 let query = format!("DELETE FROM {table} WHERE text = ?");
 
-                sqlx::query(&query)
-                    .bind(input_text)
-                    .execute(pool)
-                    .await
-                    .with_context(|| {
-                        "Failed to fetch data from cache database nor re-fetch translation result"
-                            .to_string()
-                    })
+                sqlx::query(&query).bind(input_text).execute(pool).await
             };
 
             match sqlx::query(&query)
@@ -159,8 +121,10 @@ impl Rdict {
                                 is_cached: true,
                             });
                         }
-                        Err(_) => delete_row().await?,
-                    };
+                        Err(_) => {
+                            delete_row().await?;
+                        }
+                    }
                 }
 
                 Ok(None) => {
@@ -177,22 +141,18 @@ impl Rdict {
         }
 
         // Fetch from web
-        let html = self
-            .fetch_text_html(input_text)
-            .await
-            .context("Error fetching HTML")?;
+        let html = self.fetch_text_html(input_text).await?;
 
         if is_cjk {
             let result = to_english(input_text, &html)?;
             if let Some(pool) = &self.pool {
-                let data = serde_json::to_string(&result).context("Error serializing result")?;
+                let data = serde_json::to_string(&result)?;
 
                 sqlx::query("INSERT OR REPLACE INTO to_english_results (text, data) VALUES (?, ?)")
                     .bind(input_text)
                     .bind(&data)
                     .execute(pool)
-                    .await
-                    .context("Error saving to English cache")?;
+                    .await?;
             }
 
             Ok(FetchedResult {
@@ -202,14 +162,13 @@ impl Rdict {
         } else {
             let result = to_chinese(input_text, &html)?;
             if let Some(pool) = &self.pool {
-                let data = serde_json::to_string(&result).context("Error serializing result")?;
+                let data = serde_json::to_string(&result)?;
 
                 sqlx::query("INSERT OR REPLACE INTO to_chinese_results (text, data) VALUES (?, ?)")
                     .bind(input_text)
                     .bind(&data)
                     .execute(pool)
-                    .await
-                    .context("Error saving to Chinese cache")?;
+                    .await?;
             }
 
             Ok(FetchedResult {
@@ -239,8 +198,10 @@ impl Rdict {
     }
 }
 
-fn contains_cjk(text: &str) -> Result<bool> {
-    ensure!(!text.is_empty(), "`text` is empty");
+fn contains_cjk(text: &str) -> Result<bool, Error> {
+    if text.is_empty() {
+        return Err(Error::EmptyInput);
+    }
     Ok(text
         .chars()
         .any(|ch| ('\u{4E00}'..='\u{9FFF}').contains(&ch)))
