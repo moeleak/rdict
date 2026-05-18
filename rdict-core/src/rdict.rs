@@ -246,154 +246,134 @@ fn contains_cjk(text: &str) -> Result<bool> {
         .any(|ch| ('\u{4E00}'..='\u{9FFF}').contains(&ch)))
 }
 
-/// # Errors
-///
-/// Returns an error if:
-/// - Writing to the buffer fails (which should not occur under normal
-///   circumstances with a `String` as the buffer).
-pub fn render_chinese_colored(result: &ToChinese) -> Result<String> {
+pub fn render_chinese_colored(result: &ToChinese) -> String {
     let mut output = String::new();
 
     if result.pronunciation.uk.is_some() || result.pronunciation.us.is_some() {
-        writeln!(output, "{}", "# Pronunciation".bright_black())?;
+        writeln!(output, "{}", "# Pronunciation".bright_black()).unwrap();
 
         if let Some(ref uk) = result.pronunciation.uk {
-            writeln!(output, "英：[{}]", uk.green())?;
+            writeln!(output, "英：[{}]", uk.green()).unwrap();
         }
 
         if let Some(ref us) = result.pronunciation.us {
-            writeln!(output, "美：[{}]", us.green())?;
+            writeln!(output, "美：[{}]", us.green()).unwrap();
         }
 
-        writeln!(output)?;
+        writeln!(output).unwrap();
     }
 
     if !result.meanings.is_empty() {
-        writeln!(output, "{}", "# Meanings".bright_black())?;
+        writeln!(output, "{}", "# Meanings".bright_black()).unwrap();
         for me in &result.meanings {
             if let Some(ref pa) = me.part_of_speech {
-                writeln!(output, "[{pa}]")?;
+                writeln!(output, "[{pa}]").unwrap();
             }
             for de in &me.definitions {
-                writeln!(output, "* {}", de.green())?;
+                writeln!(output, "* {}", de.green()).unwrap();
             }
-            writeln!(output)?;
+            writeln!(output).unwrap();
         }
     }
 
     if !result.examples.is_empty() {
-        writeln!(output, "{}", "# Examples".bright_black())?;
+        writeln!(output, "{}", "# Examples".bright_black()).unwrap();
         for ex in &result.examples {
-            writeln!(output, "* {}", ex.en.green())?;
-            writeln!(output, "  {}", ex.zh.magenta())?;
+            writeln!(output, "* {}", ex.en.green()).unwrap();
+            writeln!(output, "  {}", ex.zh.magenta()).unwrap();
         }
-        writeln!(output)?;
+        writeln!(output).unwrap();
     }
 
-    Ok(output.trim_end().to_string())
+    output.trim_end().to_string()
 }
 
-/// # Errors
-///
-/// Returns an error if:
-/// - Writing to the buffer fails (which should not occur under normal
-///   circumstances with a `String` as the buffer).
-pub fn render_english_colored(result: &ToEnglish) -> Result<String> {
+pub fn render_english_colored(result: &ToEnglish) -> String {
     let mut output = String::new();
 
     if !result.meanings.is_empty() {
-        writeln!(output, "{}", "# Meanings".bright_black())?;
+        writeln!(output, "{}", "# Meanings".bright_black()).unwrap();
         for me in &result.meanings {
-            writeln!(output, "* {}", me.green())?;
+            writeln!(output, "* {}", me.green()).unwrap();
         }
-        writeln!(output)?;
+        writeln!(output).unwrap();
     }
 
     if !result.examples.is_empty() {
-        writeln!(output, "{}", "# Examples".bright_black())?;
+        writeln!(output, "{}", "# Examples".bright_black()).unwrap();
         for ex in &result.examples {
-            writeln!(output, "* {}", ex.en.green())?;
-            writeln!(output, "  {}", ex.zh.magenta())?;
+            writeln!(output, "* {}", ex.en.green()).unwrap();
+            writeln!(output, "  {}", ex.zh.magenta()).unwrap();
         }
-        writeln!(output)?;
+        writeln!(output).unwrap();
     }
 
-    Ok(output.trim_end().to_string())
+    output.trim_end().to_string()
 }
 
-/// # Errors
-///
-/// Returns an error if:
-/// - Writing to the buffer fails (which should not occur under normal
-///   circumstances with a `String` as the buffer).
-pub fn render_chinese_plain(result: &ToChinese) -> Result<String> {
+pub fn render_chinese_plain(result: &ToChinese) -> String {
     let mut output = String::new();
 
     if result.pronunciation.uk.is_some() || result.pronunciation.us.is_some() {
-        writeln!(output, "# Pronunciation")?;
+        writeln!(output, "# Pronunciation").unwrap();
 
         if let Some(ref uk) = result.pronunciation.uk {
-            writeln!(output, "英：[{uk}]")?;
+            writeln!(output, "英：[{uk}]").unwrap();
         }
 
         if let Some(ref us) = result.pronunciation.us {
-            writeln!(output, "美：[{us}]")?;
+            writeln!(output, "美：[{us}]").unwrap();
         }
 
-        writeln!(output)?;
+        writeln!(output).unwrap();
     }
 
     if !result.meanings.is_empty() {
-        writeln!(output, "# Meanings")?;
+        writeln!(output, "# Meanings").unwrap();
         for me in &result.meanings {
             if let Some(ref pa) = me.part_of_speech {
-                writeln!(output, "[{pa}]")?;
+                writeln!(output, "[{pa}]").unwrap();
             }
             for de in &me.definitions {
-                writeln!(output, "* {de}")?;
+                writeln!(output, "* {de}").unwrap();
             }
-            writeln!(output)?;
+            writeln!(output).unwrap();
         }
     }
 
     if !result.examples.is_empty() {
-        writeln!(output, "# Examples")?;
+        writeln!(output, "# Examples").unwrap();
         for ex in &result.examples {
-            writeln!(output, "* {}", ex.en)?;
-            writeln!(output, "  {}", ex.zh)?;
+            writeln!(output, "* {}", ex.en).unwrap();
+            writeln!(output, "  {}", ex.zh).unwrap();
         }
-        writeln!(output)?;
+        writeln!(output).unwrap();
     }
 
-    Ok(output.trim_end().to_string())
+    output.trim_end().to_string()
 }
 
-/// # Errors
-///
-/// Returns an error if:
-/// - Writing to the buffer fails (which should not occur under normal
-///   circumstances with a `String` as the buffer).
-pub fn render_english_plain(result: &ToEnglish) -> Result<String> {
+pub fn render_english_plain(result: &ToEnglish) -> String {
     let mut output = String::new();
 
     if !result.meanings.is_empty() {
-        writeln!(output, "# Meanings")?;
+        writeln!(output, "# Meanings").unwrap();
         for me in &result.meanings {
-            writeln!(output, "* {me}")?;
+            writeln!(output, "* {me}").unwrap();
         }
-        writeln!(output)?;
+        writeln!(output).unwrap();
     }
 
     if !result.examples.is_empty() {
-        writeln!(output, "# Examples")?;
+        writeln!(output, "# Examples").unwrap();
         for ex in &result.examples {
-            writeln!(output, "* {}", ex.en)?;
-            writeln!(output, "  {}", ex.zh)?;
+            writeln!(output, "* {}", ex.en).unwrap();
+            writeln!(output, "  {}", ex.zh).unwrap();
         }
-        writeln!(output)?;
+        writeln!(output).unwrap();
     }
 
-    Ok(output.trim_end().to_string())
+    output.trim_end().to_string()
 }
 
 #[cfg(test)]

@@ -143,16 +143,16 @@ impl App {
             Format::MarkdownColored | Format::Markdown => {
                 let output = match (&self.format, &result.data) {
                     (Format::MarkdownColored, TranslationData::ToChinese(tc)) => {
-                        rdict::render_chinese_colored(tc)?
+                        rdict::render_chinese_colored(tc)
                     }
                     (Format::MarkdownColored, TranslationData::ToEnglish(te)) => {
-                        rdict::render_english_colored(te)?
+                        rdict::render_english_colored(te)
                     }
                     (Format::Markdown, TranslationData::ToChinese(tc)) => {
-                        rdict::render_chinese_plain(tc)?
+                        rdict::render_chinese_plain(tc)
                     }
                     (Format::Markdown, TranslationData::ToEnglish(te)) => {
-                        rdict::render_english_plain(te)?
+                        rdict::render_english_plain(te)
                     }
                     _ => unreachable!(),
                 };
