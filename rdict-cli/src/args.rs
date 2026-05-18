@@ -5,7 +5,7 @@ use clap_complete::Shell;
 #[command(name = "rdict", version, about, long_about = None)]
 pub(crate) struct Args {
     #[arg(value_name = "TEXT")]
-    pub(crate) input_text: Option<String>,
+    pub(crate) input_text: Vec<String>,
 
     /// Disable translation caches
     #[arg(long)]

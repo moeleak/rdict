@@ -61,13 +61,14 @@ impl App {
     /// Enters interactive mode if `input_text` is not provided by command-line argument or piping.
     async fn run(&self) -> Result<()> {
         let stdin_is_piped = !io::stdin().is_terminal();
+        let query = &self.cli.input_text.join(" ");
 
-        match &self.cli.input_text {
-            Some(input_text) => {
+        match &self.cli.input_text.len() {
+            1.. => {
                 info!("`input_text` provided through argument.");
-                self.output_results(input_text).await?;
+                self.output_results(query).await?;
             }
-            None if stdin_is_piped => {
+            0 if stdin_is_piped => {
                 info!("`input_text` provided through pipe.");
                 let mut buffer = String::new();
                 io::stdin().read_to_string(&mut buffer)?;
@@ -75,7 +76,7 @@ impl App {
                 ensure!(!input_text.is_empty(), "No input_text specified");
                 self.output_results(input_text).await?;
             }
-            _ => {
+            0 => {
                 info!("`input_text` not provided, entering interactive mode.");
                 self.interactive_mode()
                     .await
@@ -207,7 +208,7 @@ async fn main() -> Result<()> {
         let name = cmd.get_name().to_string();
         generate(generator, &mut cmd, &name, &mut io::stdout());
         return Ok(());
-    };
+    }
 
     let app = App::new(cli).await?;
     app.run().await
