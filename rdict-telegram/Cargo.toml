@@ -13,14 +13,14 @@ name = "rdict-telegram"
 path = "src/main.rs"
 
 [dependencies]
-teloxide = { version = "0.16.0", default-features = false, features = [
+rdict_core = { path = "../rdict-core" }
+anyhow = "1.0.98"
+env_logger = "0.11.8"
+html-escape = "0.2.13"
+log = { version = "0.4" }
+teloxide = { version = "0.17.0", default-features = false, features = [
   "macros",
   "rustls",
   "ctrlc_handler",
 ] }
 tokio = { version = "1.8", features = ["rt-multi-thread", "macros"] }
-log = { version = "0.4" }
-rdict_core = { path = "../rdict-core" }
-anyhow = "1.0.98"
-html-escape = "0.2.13"
-env_logger = "0.11.8"
