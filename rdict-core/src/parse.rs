@@ -1,20 +1,20 @@
 use crate::Error;
-use scraper::{Html, Selector};
+use scraper::{ElementRef, Selector};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Pronunciation {
     pub uk: Option<String>,
     pub us: Option<String>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Example {
     pub en: String,
     pub zh: String,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Meaning {
     pub part_of_speech: Option<String>,
     pub definitions: Vec<String>,
@@ -36,6 +36,11 @@ pub struct ToEnglish {
     pub examples: Vec<Example>,
 }
 
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct NotFound {
+    pub suggestions: Vec<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(tag = "type", content = "data")]
 pub enum TranslationData {
@@ -44,6 +49,9 @@ pub enum TranslationData {
 
     #[serde(rename = "to_english")]
     ToEnglish(ToEnglish),
+
+    #[serde(rename = "not_found")]
+    NotFound(NotFound),
 }
 
 macro_rules! selector {
@@ -54,7 +62,7 @@ macro_rules! selector {
 }
 
 #[rustfmt::skip]
-mod selectors {
+pub mod selectors {
     use std::sync::LazyLock;
 
     use super::Selector;
@@ -74,13 +82,7 @@ mod selectors {
 }
 
 /// Parses English, returns Chinese
-pub fn to_chinese(input_text: &str, html: &str) -> std::result::Result<ToChinese, Error> {
-    let binding = Html::parse_document(html);
-    let document = binding
-        .select(&selectors::BODY_SELECTOR)
-        .next()
-        .ok_or(Error::Parse("no .search_result-dict found".into()))?;
-
+pub fn to_chinese(input_text: &str, document: ElementRef) -> std::result::Result<ToChinese, Error> {
     let mut result = ToChinese {
         input_text: input_text.to_owned(),
         ..Default::default()
@@ -177,13 +179,7 @@ pub fn to_chinese(input_text: &str, html: &str) -> std::result::Result<ToChinese
 }
 
 /// Parses Chinese, returns English
-pub fn to_english(input_text: &str, html: &str) -> std::result::Result<ToEnglish, Error> {
-    let binding = Html::parse_document(html);
-    let document = binding
-        .select(&selectors::BODY_SELECTOR)
-        .next()
-        .ok_or(Error::Parse("no .search_result-dict found".into()))?;
-
+pub fn to_english(input_text: &str, document: ElementRef) -> std::result::Result<ToEnglish, Error> {
     let mut result = ToEnglish {
         input_text: input_text.to_owned(),
         ..Default::default()
@@ -221,4 +217,29 @@ pub fn to_english(input_text: &str, html: &str) -> std::result::Result<ToEnglish
     }
 
     Ok(result)
+}
+
+pub fn not_found(document: ElementRef) -> std::result::Result<NotFound, Error> {
+    let maybe_container_selector = Selector::parse("div.maybe").unwrap();
+    let word_selector = Selector::parse("div.maybe_word a.point").unwrap();
+
+    let mut suggestions = Vec::new();
+
+    // Assuming `document` is your parsed Html object and `result` is your NotFound struct
+    if let Some(container) = document.select(&maybe_container_selector).next() {
+        // Loop through every <a class="point"> found inside the container
+        for anchor in container.select(&word_selector) {
+            let suggestion_text = anchor.text().collect::<String>().trim().to_owned();
+
+            if !suggestion_text.is_empty() {
+                suggestions.push(suggestion_text);
+            }
+        }
+    }
+
+    if !suggestions.is_empty() {
+        return Ok(NotFound { suggestions });
+    }
+
+    Err(Error::NoTranslationResults)
 }
