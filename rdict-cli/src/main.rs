@@ -12,7 +12,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use log::info;
 use owo_colors::OwoColorize;
 use rdict_core::parse::TranslationData;
-use rdict_core::rdict::{Format, Rdict};
+use rdict_core::rdict::Rdict;
 use rustyline::DefaultEditor;
 use std::env;
 use std::io::{self, IsTerminal, Read};
@@ -26,6 +26,16 @@ struct App {
     client: Rdict,
     /// Command-line arguments handled by `clap`
     cli: Args,
+}
+
+#[derive(Debug)]
+enum Format {
+    /// Markdown with ANSI color escape sequences
+    MarkdownColored,
+    /// Plain Markdown
+    Markdown,
+    /// Formatted JSON
+    Json,
 }
 
 impl App {

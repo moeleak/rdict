@@ -18,16 +18,6 @@ pub struct Rdict {
     pool: Option<SqlitePool>,
 }
 
-#[derive(Debug)]
-pub enum Format {
-    /// Markdown with ANSI color escape sequences
-    MarkdownColored,
-    /// Plain Markdown
-    Markdown,
-    /// Formatted JSON
-    Json,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct FetchedResult {
     pub data: TranslationData,
