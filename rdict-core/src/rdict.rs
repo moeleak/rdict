@@ -254,138 +254,142 @@ fn contains_cjk(text: &str) -> Result<bool, Error> {
         .any(|ch| ('\u{4E00}'..='\u{9FFF}').contains(&ch)))
 }
 
-#[must_use]
-pub fn render_chinese_colored(result: &ToChinese) -> String {
-    let mut output = String::new();
+impl ToChinese {
+    #[must_use]
+    pub fn render_colored(&self) -> String {
+        let mut output = String::new();
 
-    if result.pronunciation.uk.is_some() || result.pronunciation.us.is_some() {
-        writeln!(output, "{}", "# Pronunciation".bright_black()).unwrap();
+        if self.pronunciation.uk.is_some() || self.pronunciation.us.is_some() {
+            writeln!(output, "{}", "# Pronunciation".bright_black()).unwrap();
 
-        if let Some(ref uk) = result.pronunciation.uk {
-            writeln!(output, "英：[{}]", uk.green()).unwrap();
-        }
-
-        if let Some(ref us) = result.pronunciation.us {
-            writeln!(output, "美：[{}]", us.green()).unwrap();
-        }
-
-        writeln!(output).unwrap();
-    }
-
-    if !result.meanings.is_empty() {
-        writeln!(output, "{}", "# Meanings".bright_black()).unwrap();
-        for me in &result.meanings {
-            if let Some(ref pa) = me.part_of_speech {
-                writeln!(output, "[{pa}]").unwrap();
+            if let Some(ref uk) = self.pronunciation.uk {
+                writeln!(output, "英：[{}]", uk.green()).unwrap();
             }
-            for de in &me.definitions {
-                writeln!(output, "* {}", de.green()).unwrap();
+
+            if let Some(ref us) = self.pronunciation.us {
+                writeln!(output, "美：[{}]", us.green()).unwrap();
+            }
+
+            writeln!(output).unwrap();
+        }
+
+        if !self.meanings.is_empty() {
+            writeln!(output, "{}", "# Meanings".bright_black()).unwrap();
+            for me in &self.meanings {
+                if let Some(ref pa) = me.part_of_speech {
+                    writeln!(output, "[{pa}]").unwrap();
+                }
+                for de in &me.definitions {
+                    writeln!(output, "* {}", de.green()).unwrap();
+                }
+                writeln!(output).unwrap();
+            }
+        }
+
+        if !self.examples.is_empty() {
+            writeln!(output, "{}", "# Examples".bright_black()).unwrap();
+            for ex in &self.examples {
+                writeln!(output, "* {}", ex.en.green()).unwrap();
+                writeln!(output, "  {}", ex.zh.magenta()).unwrap();
             }
             writeln!(output).unwrap();
         }
+
+        output.trim_end().to_string()
     }
 
-    if !result.examples.is_empty() {
-        writeln!(output, "{}", "# Examples".bright_black()).unwrap();
-        for ex in &result.examples {
-            writeln!(output, "* {}", ex.en.green()).unwrap();
-            writeln!(output, "  {}", ex.zh.magenta()).unwrap();
-        }
-        writeln!(output).unwrap();
-    }
+    #[must_use]
+    pub fn render_plain(&self) -> String {
+        let mut output = String::new();
 
-    output.trim_end().to_string()
-}
+        if self.pronunciation.uk.is_some() || self.pronunciation.us.is_some() {
+            writeln!(output, "# Pronunciation").unwrap();
 
-#[must_use]
-pub fn render_english_colored(result: &ToEnglish) -> String {
-    let mut output = String::new();
-
-    if !result.meanings.is_empty() {
-        writeln!(output, "{}", "# Meanings".bright_black()).unwrap();
-        for me in &result.meanings {
-            writeln!(output, "* {}", me.green()).unwrap();
-        }
-        writeln!(output).unwrap();
-    }
-
-    if !result.examples.is_empty() {
-        writeln!(output, "{}", "# Examples".bright_black()).unwrap();
-        for ex in &result.examples {
-            writeln!(output, "* {}", ex.en.green()).unwrap();
-            writeln!(output, "  {}", ex.zh.magenta()).unwrap();
-        }
-        writeln!(output).unwrap();
-    }
-
-    output.trim_end().to_string()
-}
-
-#[must_use]
-pub fn render_chinese_plain(result: &ToChinese) -> String {
-    let mut output = String::new();
-
-    if result.pronunciation.uk.is_some() || result.pronunciation.us.is_some() {
-        writeln!(output, "# Pronunciation").unwrap();
-
-        if let Some(ref uk) = result.pronunciation.uk {
-            writeln!(output, "英：[{uk}]").unwrap();
-        }
-
-        if let Some(ref us) = result.pronunciation.us {
-            writeln!(output, "美：[{us}]").unwrap();
-        }
-
-        writeln!(output).unwrap();
-    }
-
-    if !result.meanings.is_empty() {
-        writeln!(output, "# Meanings").unwrap();
-        for me in &result.meanings {
-            if let Some(ref pa) = me.part_of_speech {
-                writeln!(output, "[{pa}]").unwrap();
+            if let Some(ref uk) = self.pronunciation.uk {
+                writeln!(output, "英：[{uk}]").unwrap();
             }
-            for de in &me.definitions {
-                writeln!(output, "* {de}").unwrap();
+
+            if let Some(ref us) = self.pronunciation.us {
+                writeln!(output, "美：[{us}]").unwrap();
+            }
+
+            writeln!(output).unwrap();
+        }
+
+        if !self.meanings.is_empty() {
+            writeln!(output, "# Meanings").unwrap();
+            for me in &self.meanings {
+                if let Some(ref pa) = me.part_of_speech {
+                    writeln!(output, "[{pa}]").unwrap();
+                }
+                for de in &me.definitions {
+                    writeln!(output, "* {de}").unwrap();
+                }
+                writeln!(output).unwrap();
+            }
+        }
+
+        if !self.examples.is_empty() {
+            writeln!(output, "# Examples").unwrap();
+            for ex in &self.examples {
+                writeln!(output, "* {}", ex.en).unwrap();
+                writeln!(output, "  {}", ex.zh).unwrap();
             }
             writeln!(output).unwrap();
         }
-    }
 
-    if !result.examples.is_empty() {
-        writeln!(output, "# Examples").unwrap();
-        for ex in &result.examples {
-            writeln!(output, "* {}", ex.en).unwrap();
-            writeln!(output, "  {}", ex.zh).unwrap();
-        }
-        writeln!(output).unwrap();
+        output.trim_end().to_string()
     }
-
-    output.trim_end().to_string()
 }
 
-#[must_use]
-pub fn render_english_plain(result: &ToEnglish) -> String {
-    let mut output = String::new();
+impl ToEnglish {
+    #[must_use]
+    pub fn render_colored(&self) -> String {
+        let mut output = String::new();
 
-    if !result.meanings.is_empty() {
-        writeln!(output, "# Meanings").unwrap();
-        for me in &result.meanings {
-            writeln!(output, "* {me}").unwrap();
+        if !self.meanings.is_empty() {
+            writeln!(output, "{}", "# Meanings".bright_black()).unwrap();
+            for me in &self.meanings {
+                writeln!(output, "* {}", me.green()).unwrap();
+            }
+            writeln!(output).unwrap();
         }
-        writeln!(output).unwrap();
+
+        if !self.examples.is_empty() {
+            writeln!(output, "{}", "# Examples".bright_black()).unwrap();
+            for ex in &self.examples {
+                writeln!(output, "* {}", ex.en.green()).unwrap();
+                writeln!(output, "  {}", ex.zh.magenta()).unwrap();
+            }
+            writeln!(output).unwrap();
+        }
+
+        output.trim_end().to_string()
     }
 
-    if !result.examples.is_empty() {
-        writeln!(output, "# Examples").unwrap();
-        for ex in &result.examples {
-            writeln!(output, "* {}", ex.en).unwrap();
-            writeln!(output, "  {}", ex.zh).unwrap();
-        }
-        writeln!(output).unwrap();
-    }
+    #[must_use]
+    pub fn render_plain(&self) -> String {
+        let mut output = String::new();
 
-    output.trim_end().to_string()
+        if !self.meanings.is_empty() {
+            writeln!(output, "# Meanings").unwrap();
+            for me in &self.meanings {
+                writeln!(output, "* {me}").unwrap();
+            }
+            writeln!(output).unwrap();
+        }
+
+        if !self.examples.is_empty() {
+            writeln!(output, "# Examples").unwrap();
+            for ex in &self.examples {
+                writeln!(output, "* {}", ex.en).unwrap();
+                writeln!(output, "  {}", ex.zh).unwrap();
+            }
+            writeln!(output).unwrap();
+        }
+
+        output.trim_end().to_string()
+    }
 }
 
 #[cfg(test)]

@@ -12,7 +12,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use log::info;
 use owo_colors::OwoColorize;
 use rdict_core::parse::TranslationData;
-use rdict_core::rdict::{self, Format, Rdict};
+use rdict_core::rdict::{Format, Rdict};
 use rustyline::DefaultEditor;
 use std::env;
 use std::io::{self, IsTerminal, Read};
@@ -144,17 +144,13 @@ impl App {
             Format::MarkdownColored | Format::Markdown => {
                 let output = match (&self.format, &result.data) {
                     (Format::MarkdownColored, TranslationData::ToChinese(tc)) => {
-                        rdict::render_chinese_colored(tc)
+                        tc.render_colored()
                     }
                     (Format::MarkdownColored, TranslationData::ToEnglish(te)) => {
-                        rdict::render_english_colored(te)
+                        te.render_colored()
                     }
-                    (Format::Markdown, TranslationData::ToChinese(tc)) => {
-                        rdict::render_chinese_plain(tc)
-                    }
-                    (Format::Markdown, TranslationData::ToEnglish(te)) => {
-                        rdict::render_english_plain(te)
-                    }
+                    (Format::Markdown, TranslationData::ToChinese(tc)) => tc.render_plain(),
+                    (Format::Markdown, TranslationData::ToEnglish(te)) => te.render_plain(),
                     _ => unreachable!(),
                 };
 
