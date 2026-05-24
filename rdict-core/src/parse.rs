@@ -81,165 +81,171 @@ pub mod selectors {
     pub static TO_ENGLISH_TRANSLATION_SELECTOR: LazyLock<Selector> = selector!(".trans-container .basic .col2 .point");
 }
 
-/// Parses English, returns Chinese
-pub fn to_chinese(input_text: &str, document: ElementRef) -> std::result::Result<ToChinese, Error> {
-    let mut result = ToChinese {
-        input_text: input_text.to_owned(),
-        ..Default::default()
-    };
+pub struct DictPage<'a>(ElementRef<'a>);
 
-    for (i, element) in document
-        .select(&selectors::PRONUNCIATION_SELECTOR)
-        .take(2)
-        .enumerate()
-    {
-        let text = element
-            .text()
-            .collect::<String>()
-            .trim_matches('/')
-            .trim()
-            .to_owned();
-
-        let text = if text.is_empty() { None } else { Some(text) };
-
-        match i {
-            0 => result.pronunciation.uk = text,
-            1 => result.pronunciation.us = text,
-            _ => unreachable!(),
-        }
+impl<'a> DictPage<'a> {
+    #[must_use] 
+    pub const fn new(element: ElementRef<'a>) -> Self {
+        Self(element)
     }
 
-    for element in document.select(&selectors::MEANINGS_SELECTOR) {
-        let part_of_speech = element
-            .select(&selectors::PART_OF_SPEECH_SELECTOR)
-            .next()
-            .map(|e| e.text().collect::<String>().trim().to_owned());
+    pub fn to_chinese(&self, input_text: &str) -> std::result::Result<ToChinese, Error> {
+        let mut result = ToChinese {
+            input_text: input_text.to_owned(),
+            ..Default::default()
+        };
 
-        let definitions: Vec<String> = element
-            .select(&selectors::DEFINITIONS_SELECTOR)
-            .next()
-            .map(|e| {
-                e.text()
-                    .collect::<String>()
-                    .trim()
-                    .split('；')
-                    .map(|s| s.trim().to_owned())
-                    .collect()
-            })
-            .unwrap_or_default();
+        for (i, element) in self
+            .0
+            .select(&selectors::PRONUNCIATION_SELECTOR)
+            .take(2)
+            .enumerate()
+        {
+            let text = element
+                .text()
+                .collect::<String>()
+                .trim_matches('/')
+                .trim()
+                .to_owned();
 
-        if part_of_speech.is_some() || !definitions.is_empty() {
-            result.meanings.push(Meaning {
-                part_of_speech,
-                definitions,
-            });
-        }
-    }
+            let text = if text.is_empty() { None } else { Some(text) };
 
-    // Exams
-    // e.g. [ "初中", "高中", "CET4", "CET6", "考研" ]
-    if let Some(container) = document.select(&selectors::EXAM_LIST_SELECTOR).next() {
-        for exam_elem in container.select(&selectors::EXAM_SELECTOR) {
-            let exam_text = exam_elem.text().collect::<String>().trim().to_owned();
-
-            if !exam_text.is_empty() {
-                result.exams.push(exam_text);
+            match i {
+                0 => result.pronunciation.uk = text,
+                1 => result.pronunciation.us = text,
+                _ => unreachable!(),
             }
         }
-    }
 
-    // Example sentences
-    for element in document.select(&selectors::EXAMPLE_SELECTOR) {
-        let en = element
-            .select(&selectors::EN_SELECTOR)
-            .next()
-            .map(|e| e.text().collect::<String>().trim().to_owned())
-            .unwrap_or_default();
+        for element in self.0.select(&selectors::MEANINGS_SELECTOR) {
+            let part_of_speech = element
+                .select(&selectors::PART_OF_SPEECH_SELECTOR)
+                .next()
+                .map(|e| e.text().collect::<String>().trim().to_owned());
 
-        let zh = element
-            .select(&selectors::ZH_SELECTOR)
-            .next()
-            .map(|e| e.text().collect::<String>().trim().to_owned())
-            .unwrap_or_default();
+            let definitions: Vec<String> = element
+                .select(&selectors::DEFINITIONS_SELECTOR)
+                .next()
+                .map(|e| {
+                    e.text()
+                        .collect::<String>()
+                        .trim()
+                        .split('；')
+                        .map(|s| s.trim().to_owned())
+                        .collect()
+                })
+                .unwrap_or_default();
 
-        if !en.is_empty() || !zh.is_empty() {
-            result.examples.push(Example { en, zh });
-        }
-    }
-
-    if result.examples.is_empty()
-        && result.meanings.is_empty()
-        && result.pronunciation.uk.is_none()
-        && result.pronunciation.us.is_none()
-    {
-        return Err(Error::NoTranslationResults);
-    }
-
-    Ok(result)
-}
-
-/// Parses Chinese, returns English
-pub fn to_english(input_text: &str, document: ElementRef) -> std::result::Result<ToEnglish, Error> {
-    let mut result = ToEnglish {
-        input_text: input_text.to_owned(),
-        ..Default::default()
-    };
-
-    // Meanings
-    for element in document.select(&selectors::TO_ENGLISH_TRANSLATION_SELECTOR) {
-        let text = element.text().collect::<String>().trim().to_owned();
-        if !text.is_empty() {
-            result.meanings.push(text);
-        }
-    }
-
-    // Example sentences
-    for element in document.select(&selectors::EXAMPLE_SELECTOR) {
-        let en = element
-            .select(&selectors::EN_SELECTOR)
-            .next()
-            .map(|el| el.text().collect::<String>().trim().to_owned())
-            .unwrap_or_default();
-
-        let zh = element
-            .select(&selectors::ZH_SELECTOR)
-            .next()
-            .map(|el| el.text().collect::<String>().trim().to_owned())
-            .unwrap_or_default();
-
-        if !en.is_empty() || !zh.is_empty() {
-            result.examples.push(Example { en, zh });
-        }
-    }
-
-    if result.examples.is_empty() && result.meanings.is_empty() {
-        return Err(Error::NoTranslationResults);
-    }
-
-    Ok(result)
-}
-
-pub fn not_found(document: ElementRef) -> std::result::Result<NotFound, Error> {
-    let maybe_container_selector = Selector::parse("div.maybe").unwrap();
-    let word_selector = Selector::parse("div.maybe_word a.point").unwrap();
-
-    let mut suggestions = Vec::new();
-
-    // Assuming `document` is your parsed Html object and `result` is your NotFound struct
-    if let Some(container) = document.select(&maybe_container_selector).next() {
-        // Loop through every <a class="point"> found inside the container
-        for anchor in container.select(&word_selector) {
-            let suggestion_text = anchor.text().collect::<String>().trim().to_owned();
-
-            if !suggestion_text.is_empty() {
-                suggestions.push(suggestion_text);
+            if part_of_speech.is_some() || !definitions.is_empty() {
+                result.meanings.push(Meaning {
+                    part_of_speech,
+                    definitions,
+                });
             }
         }
+
+        // Exams
+        // e.g. [ "初中", "高中", "CET4", "CET6", "考研" ]
+        if let Some(container) = self.0.select(&selectors::EXAM_LIST_SELECTOR).next() {
+            for exam_elem in container.select(&selectors::EXAM_SELECTOR) {
+                let exam_text = exam_elem.text().collect::<String>().trim().to_owned();
+
+                if !exam_text.is_empty() {
+                    result.exams.push(exam_text);
+                }
+            }
+        }
+
+        // Example sentences
+        for element in self.0.select(&selectors::EXAMPLE_SELECTOR) {
+            let en = element
+                .select(&selectors::EN_SELECTOR)
+                .next()
+                .map(|e| e.text().collect::<String>().trim().to_owned())
+                .unwrap_or_default();
+
+            let zh = element
+                .select(&selectors::ZH_SELECTOR)
+                .next()
+                .map(|e| e.text().collect::<String>().trim().to_owned())
+                .unwrap_or_default();
+
+            if !en.is_empty() || !zh.is_empty() {
+                result.examples.push(Example { en, zh });
+            }
+        }
+
+        if result.examples.is_empty()
+            && result.meanings.is_empty()
+            && result.pronunciation.uk.is_none()
+            && result.pronunciation.us.is_none()
+        {
+            return Err(Error::NoTranslationResults);
+        }
+
+        Ok(result)
     }
 
-    if !suggestions.is_empty() {
-        return Ok(NotFound { suggestions });
+    pub fn to_english(&self, input_text: &str) -> std::result::Result<ToEnglish, Error> {
+        let mut result = ToEnglish {
+            input_text: input_text.to_owned(),
+            ..Default::default()
+        };
+
+        // Meanings
+        for element in self.0.select(&selectors::TO_ENGLISH_TRANSLATION_SELECTOR) {
+            let text = element.text().collect::<String>().trim().to_owned();
+            if !text.is_empty() {
+                result.meanings.push(text);
+            }
+        }
+
+        // Example sentences
+        for element in self.0.select(&selectors::EXAMPLE_SELECTOR) {
+            let en = element
+                .select(&selectors::EN_SELECTOR)
+                .next()
+                .map(|el| el.text().collect::<String>().trim().to_owned())
+                .unwrap_or_default();
+
+            let zh = element
+                .select(&selectors::ZH_SELECTOR)
+                .next()
+                .map(|el| el.text().collect::<String>().trim().to_owned())
+                .unwrap_or_default();
+
+            if !en.is_empty() || !zh.is_empty() {
+                result.examples.push(Example { en, zh });
+            }
+        }
+
+        if result.examples.is_empty() && result.meanings.is_empty() {
+            return Err(Error::NoTranslationResults);
+        }
+
+        Ok(result)
     }
 
-    Err(Error::NoTranslationResults)
+    pub fn not_found(&self) -> std::result::Result<NotFound, Error> {
+        let maybe_container_selector = Selector::parse("div.maybe").unwrap();
+        let word_selector = Selector::parse("div.maybe_word a.point").unwrap();
+
+        let mut suggestions = Vec::new();
+
+        if let Some(container) = self.0.select(&maybe_container_selector).next() {
+            for anchor in container.select(&word_selector) {
+                let suggestion_text = anchor.text().collect::<String>().trim().to_owned();
+
+                if !suggestion_text.is_empty() {
+                    suggestions.push(suggestion_text);
+                }
+            }
+        }
+
+        if !suggestions.is_empty() {
+            return Ok(NotFound { suggestions });
+        }
+
+        Err(Error::NoTranslationResults)
+    }
 }
