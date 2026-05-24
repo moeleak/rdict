@@ -57,9 +57,16 @@ async fn handle_command(bot: Bot, msg: Message, cmd: Command, client: Arc<Rdict>
                 .await
                 .context("Failed to get translation results")?;
 
-            let output = match result.data {
-                TranslationData::ToChinese(tc) => rdict::render_chinese_plain(&tc),
-                TranslationData::ToEnglish(te) => rdict::render_english_plain(&te),
+            let output = match &result.data {
+                TranslationData::ToChinese(tc) => rdict::render_chinese_plain(tc),
+                TranslationData::ToEnglish(te) => rdict::render_english_plain(te),
+                TranslationData::NotFound(nf) => {
+                    if nf.suggestions.is_empty() {
+                        "No results found.".to_owned()
+                    } else {
+                        format!("Did you mean:\n{}", nf.suggestions.join("\n"))
+                    }
+                }
             };
 
             let wrapped_output = format!(

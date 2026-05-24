@@ -1,8 +1,11 @@
 use crate::Error;
-use crate::parse::{ToChinese, ToEnglish, TranslationData, to_chinese, to_english};
+use crate::parse::{
+    ToChinese, ToEnglish, TranslationData, not_found, selectors, to_chinese, to_english,
+};
 use log::{debug, info};
 use owo_colors::OwoColorize;
 use reqwest::Client;
+use scraper::Html;
 use sqlx::Row;
 use sqlx::migrate::MigrateDatabase;
 use sqlx::sqlite::SqlitePool;
@@ -146,39 +149,80 @@ impl Rdict {
         // Fetch from web
         let html = self.fetch_text_html(input_text).await?;
 
-        if is_cjk {
-            let result = to_english(input_text, &html)?;
-            if let Some(pool) = &self.pool {
-                let data = serde_json::to_string(&result)?;
+        let (result, data_for_cache): (TranslationData, Option<String>) = {
+            let binding = Html::parse_document(&html);
+            let document = binding
+                .select(&selectors::BODY_SELECTOR)
+                .next()
+                .ok_or(Error::Parse("no .search_result-dict found".into()))?;
 
-                sqlx::query("INSERT OR REPLACE INTO to_english_results (text, data) VALUES (?, ?)")
-                    .bind(input_text)
-                    .bind(&data)
-                    .execute(pool)
-                    .await?;
+            if is_cjk {
+                let result = match to_english(input_text, document) {
+                    Ok(translation) => translation,
+
+                    Err(Error::NoTranslationResults) => {
+                        let nf_data = not_found(document)?;
+
+                        return Ok(FetchedResult {
+                            data: TranslationData::NotFound(nf_data),
+                            is_cached: false,
+                        });
+                    }
+
+                    Err(other_error) => return Err(other_error),
+                };
+
+                let data = self
+                    .pool
+                    .as_ref()
+                    .map(|_| serde_json::to_string(&result))
+                    .transpose()?;
+                (TranslationData::ToEnglish(result), data)
+            } else {
+                let result = match to_chinese(input_text, document) {
+                    Ok(translation) => translation,
+
+                    Err(Error::NoTranslationResults) => {
+                        let nf_data = not_found(document)?;
+
+                        return Ok(FetchedResult {
+                            data: TranslationData::NotFound(nf_data),
+                            is_cached: false,
+                        });
+                    }
+
+                    Err(other_error) => return Err(other_error),
+                };
+
+                let data = self
+                    .pool
+                    .as_ref()
+                    .map(|_| serde_json::to_string(&result))
+                    .transpose()?;
+                (TranslationData::ToChinese(result), data)
             }
+        };
 
-            Ok(FetchedResult {
-                data: TranslationData::ToEnglish(result),
-                is_cached: false,
-            })
-        } else {
-            let result = to_chinese(input_text, &html)?;
-            if let Some(pool) = &self.pool {
-                let data = serde_json::to_string(&result)?;
+        if let Some(pool) = &self.pool
+            && let Some(data) = data_for_cache
+        {
+            let query = if is_cjk {
+                "INSERT OR REPLACE INTO to_english_results (text, data) VALUES (?, ?)"
+            } else {
+                "INSERT OR REPLACE INTO to_chinese_results (text, data) VALUES (?, ?)"
+            };
 
-                sqlx::query("INSERT OR REPLACE INTO to_chinese_results (text, data) VALUES (?, ?)")
-                    .bind(input_text)
-                    .bind(&data)
-                    .execute(pool)
-                    .await?;
-            }
-
-            Ok(FetchedResult {
-                data: TranslationData::ToChinese(result),
-                is_cached: false,
-            })
+            sqlx::query(query)
+                .bind(input_text)
+                .bind(&data)
+                .execute(pool)
+                .await?;
         }
+
+        Ok(FetchedResult {
+            data: result,
+            is_cached: false,
+        })
     }
 
     async fn fetch_text_html(&self, text: &str) -> Result<String, reqwest::Error> {
@@ -390,6 +434,7 @@ mod tests {
         let html = client.fetch_text_html("hello").await.unwrap();
         assert!(html.contains("Hello"));
         mock.assert();
+    }
 
     #[tokio::test]
     async fn test_translation() {
@@ -470,6 +515,5 @@ mod tests {
         );
 
         mock.assert();
-    }
     }
 }

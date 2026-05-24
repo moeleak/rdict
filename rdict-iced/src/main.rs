@@ -322,6 +322,38 @@ fn view(state: &State) -> Element<'_, Message> {
                 .height(Length::Fill)
                 .into()
             }
+
+            TranslationData::NotFound(nf) => {
+                let suggestions_col = {
+                    let mut col = column![];
+                    for suggestion in &nf.suggestions {
+                        col = col.push(list_item(text(suggestion)));
+                    }
+                    col
+                };
+
+                container(
+                    column![
+                        column![
+                            text("Translation not found")
+                                .style(text::danger)
+                                .font(Font {
+                                    weight: font::Weight::Bold,
+                                    ..Font::default()
+                                })
+                                .size(20),
+                            text("Did you mean:").style(text::secondary),
+                        ],
+                        suggestions_col,
+                    ]
+                    .spacing(10),
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .align_x(Alignment::Center)
+                .align_y(Alignment::Center)
+                .into()
+            }
         },
     };
 
