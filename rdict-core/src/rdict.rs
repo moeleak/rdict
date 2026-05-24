@@ -1,7 +1,5 @@
 use crate::Error;
-use crate::parse::{
-    ToChinese, ToEnglish, TranslationData, not_found, selectors, to_chinese, to_english,
-};
+use crate::parse::{DictPage, ToChinese, ToEnglish, TranslationData, selectors};
 use log::{debug, info};
 use owo_colors::OwoColorize;
 use reqwest::Client;
@@ -151,17 +149,19 @@ impl Rdict {
 
         let (result, data_for_cache): (TranslationData, Option<String>) = {
             let binding = Html::parse_document(&html);
-            let document = binding
-                .select(&selectors::BODY_SELECTOR)
-                .next()
-                .ok_or(Error::Parse("no .search_result-dict found".into()))?;
+            let dict_page = DictPage::new(
+                binding
+                    .select(&selectors::BODY_SELECTOR)
+                    .next()
+                    .ok_or(Error::Parse("no .search_result-dict found".into()))?,
+            );
 
             if is_cjk {
-                let result = match to_english(input_text, document) {
+                let result = match dict_page.to_english(input_text) {
                     Ok(translation) => translation,
 
                     Err(Error::NoTranslationResults) => {
-                        let nf_data = not_found(document)?;
+                        let nf_data = dict_page.not_found()?;
 
                         return Ok(FetchedResult {
                             data: TranslationData::NotFound(nf_data),
@@ -179,11 +179,11 @@ impl Rdict {
                     .transpose()?;
                 (TranslationData::ToEnglish(result), data)
             } else {
-                let result = match to_chinese(input_text, document) {
+                let result = match dict_page.to_chinese(input_text) {
                     Ok(translation) => translation,
 
                     Err(Error::NoTranslationResults) => {
-                        let nf_data = not_found(document)?;
+                        let nf_data = dict_page.not_found()?;
 
                         return Ok(FetchedResult {
                             data: TranslationData::NotFound(nf_data),
