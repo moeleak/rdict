@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 use rdict_core::parse::TranslationData;
-use rdict_core::rdict::{self, Rdict};
+use rdict_core::rdict::Rdict;
 use std::sync::Arc;
 use teloxide::sugar::request::RequestReplyExt;
 use teloxide::types::ParseMode;
@@ -58,8 +58,8 @@ async fn handle_command(bot: Bot, msg: Message, cmd: Command, client: Arc<Rdict>
                 .context("Failed to get translation results")?;
 
             let output = match &result.data {
-                TranslationData::ToChinese(tc) => rdict::render_chinese_plain(tc),
-                TranslationData::ToEnglish(te) => rdict::render_english_plain(te),
+                TranslationData::ToChinese(tc) => tc.render_plain(),
+                TranslationData::ToEnglish(te) => te.render_plain(),
                 TranslationData::NotFound(nf) => {
                     if nf.suggestions.is_empty() {
                         "No results found.".to_owned()
