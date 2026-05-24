@@ -29,7 +29,7 @@ pub enum Format {
     Json,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FetchedResult {
     pub data: TranslationData,
     pub is_cached: bool,
@@ -347,6 +347,7 @@ pub fn render_english_plain(result: &ToEnglish) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parse::{Example, Meaning, Pronunciation};
     use mockito::{Matcher, Server};
 
     #[test]
@@ -389,5 +390,86 @@ mod tests {
         let html = client.fetch_text_html("hello").await.unwrap();
         assert!(html.contains("Hello"));
         mock.assert();
+
+    #[tokio::test]
+    async fn test_translation() {
+        let mut server = Server::new_async().await;
+
+        let mock = server
+            .mock("GET", "/result")
+            .match_query(Matcher::AllOf(vec![
+                Matcher::UrlEncoded("word".into(), "hello".into()),
+                Matcher::UrlEncoded("lang".into(), "en".into()),
+            ]))
+            .with_status(200)
+            .with_body(include_str!("fixtures/hello_response.html"))
+            .create();
+
+        let client = Rdict::new(&server.url(), None).await.unwrap();
+
+        let result = client.get_results("hello").await.unwrap();
+
+        println!("{:?}", result);
+
+        assert_eq!(
+            result,
+            FetchedResult {
+                is_cached: false,
+                data: TranslationData::ToChinese(ToChinese {
+                    input_text: "hello".to_owned(),
+                    pronunciation: Pronunciation {
+                        uk: Some("həˈləʊ".to_owned()),
+                        us: Some("həˈloʊ".to_owned()),
+                    },
+                    meanings: vec![
+                        Meaning {
+                            part_of_speech: Some("int.".to_owned()),
+                            definitions: vec![
+                                "喂，你好（用于问候或打招呼）".to_owned(),
+                                "喂，你好（打电话时的招呼语）".to_owned(),
+                                "喂，你好（引起别人注意的招呼语）".to_owned(),
+                                "<非正式>喂，嘿 (认为别人说了蠢话或分心)".to_owned(),
+                                "<英，旧>嘿（表示惊讶）".to_owned(),
+                            ],
+                        },
+                        Meaning {
+                            part_of_speech: Some("n.".to_owned()),
+                            definitions: vec![
+                                "招呼，问候".to_owned(),
+                                "（Hello）（法、印、美、俄）埃洛（人名）".to_owned(),
+                            ],
+                        },
+                        Meaning {
+                            part_of_speech: Some("v.".to_owned()),
+                            definitions: vec!["说（或大声说）“喂”".to_owned(), "打招呼".to_owned(),],
+                        },
+                    ],
+                    examples: vec![
+                        Example {
+                            en: "'Hello, Paul,' they chorused.".to_owned(),
+                            zh: "“你好，保罗。”他们齐声问候道。".to_owned(),
+                        },
+                        Example {
+                            en: "Hello, is there anybody there?".to_owned(),
+                            zh: "喂，那里有人吗？".to_owned(),
+                        },
+                        Example {
+                            en: "Hello, is Gordon there please?".to_owned(),
+                            zh: "您好，请问戈登在吗？".to_owned(),
+                        },
+                    ],
+                    exams: vec![
+                        "初中".to_owned(),
+                        "高中".to_owned(),
+                        "CET4".to_owned(),
+                        "CET6".to_owned(),
+                        "考研".to_owned()
+                    ],
+                }),
+            }
+        );
+
+        mock.assert();
+    }
     }
 }

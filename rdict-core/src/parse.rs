@@ -2,40 +2,41 @@ use crate::Error;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Pronunciation {
     pub uk: Option<String>,
     pub us: Option<String>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Example {
     pub en: String,
     pub zh: String,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Meaning {
     pub part_of_speech: Option<String>,
     pub definitions: Vec<String>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct ToChinese {
     pub input_text: String,
     pub pronunciation: Pronunciation,
     pub meanings: Vec<Meaning>,
     pub examples: Vec<Example>,
+    pub exams: Vec<String>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct ToEnglish {
     pub input_text: String,
     pub meanings: Vec<String>,
     pub examples: Vec<Example>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(tag = "type", content = "data")]
 pub enum TranslationData {
     #[serde(rename = "to_chinese")]
@@ -60,6 +61,8 @@ mod selectors {
 
     pub static BODY_SELECTOR:                   LazyLock<Selector> = selector!(".search_result-dict");
     pub static WORD_SELECTOR:                   LazyLock<Selector> = selector!(".word-head .title");
+    pub static EXAM_LIST_SELECTOR:              LazyLock<Selector> = selector!(".exam_type"); 
+    pub static EXAM_SELECTOR:                   LazyLock<Selector> = selector!(".exam_type-value");
     pub static PRONUNCIATION_SELECTOR:          LazyLock<Selector> = selector!(".phone_con .per-phone .phonetic");
     pub static MEANINGS_SELECTOR:               LazyLock<Selector> = selector!(".trans-container .basic .word-exp");
     pub static DEFINITIONS_SELECTOR:            LazyLock<Selector> = selector!(".trans");
@@ -128,6 +131,18 @@ pub fn to_chinese(input_text: &str, html: &str) -> std::result::Result<ToChinese
                 part_of_speech,
                 definitions,
             });
+        }
+    }
+
+    // Exams
+    // e.g. [ "初中", "高中", "CET4", "CET6", "考研" ]
+    if let Some(container) = document.select(&selectors::EXAM_LIST_SELECTOR).next() {
+        for exam_elem in container.select(&selectors::EXAM_SELECTOR) {
+            let exam_text = exam_elem.text().collect::<String>().trim().to_owned();
+
+            if !exam_text.is_empty() {
+                result.exams.push(exam_text);
+            }
         }
     }
 
