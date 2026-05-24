@@ -67,17 +67,17 @@ pub mod selectors {
 
     use super::Selector;
 
-    pub static BODY_SELECTOR:                   LazyLock<Selector> = selector!(".search_result-dict");
-    pub static WORD_SELECTOR:                   LazyLock<Selector> = selector!(".word-head .title");
-    pub static EXAM_LIST_SELECTOR:              LazyLock<Selector> = selector!(".exam_type"); 
-    pub static EXAM_SELECTOR:                   LazyLock<Selector> = selector!(".exam_type-value");
-    pub static PRONUNCIATION_SELECTOR:          LazyLock<Selector> = selector!(".phone_con .per-phone .phonetic");
+    pub static BODY_SELECTOR:                   LazyLock<Selector> = selector!("div.search_result-dict");
+    pub static WORD_SELECTOR:                   LazyLock<Selector> = selector!("div.word-head div.title");
+    pub static EXAM_LIST_SELECTOR:              LazyLock<Selector> = selector!("div.exam_type"); 
+    pub static EXAM_SELECTOR:                   LazyLock<Selector> = selector!("span.exam_type-value");
+    pub static PRONUNCIATION_SELECTOR:          LazyLock<Selector> = selector!("div.phone_con div.per-phone span.phonetic");
     pub static MEANINGS_SELECTOR:               LazyLock<Selector> = selector!(".trans-container .basic .word-exp");
-    pub static DEFINITIONS_SELECTOR:            LazyLock<Selector> = selector!(".trans");
-    pub static PART_OF_SPEECH_SELECTOR:         LazyLock<Selector> = selector!(".pos");
+    pub static DEFINITIONS_SELECTOR:            LazyLock<Selector> = selector!("span.trans");
+    pub static PART_OF_SPEECH_SELECTOR:         LazyLock<Selector> = selector!("span.pos");
     pub static EXAMPLE_SELECTOR:                LazyLock<Selector> = selector!(".trans-container .mcols-layout .col2");
-    pub static EN_SELECTOR:                     LazyLock<Selector> = selector!(".sen-eng");
-    pub static ZH_SELECTOR:                     LazyLock<Selector> = selector!(".sen-ch");
+    pub static EN_SELECTOR:                     LazyLock<Selector> = selector!("div.sen-eng");
+    pub static ZH_SELECTOR:                     LazyLock<Selector> = selector!("div.sen-ch");
     pub static TO_ENGLISH_TRANSLATION_SELECTOR: LazyLock<Selector> = selector!(".trans-container .basic .col2 .point");
 }
 
