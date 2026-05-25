@@ -11,7 +11,6 @@ use directories_next::ProjectDirs;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::info;
 use owo_colors::OwoColorize;
-use rdict_core::parse::TranslationData;
 use rdict_core::rdict::Rdict;
 use rustyline::DefaultEditor;
 use std::env;
@@ -152,15 +151,9 @@ impl App {
 
         match self.format {
             Format::MarkdownColored | Format::Markdown => {
-                let output = match (&self.format, &result.data) {
-                    (Format::MarkdownColored, TranslationData::ToChinese(tc)) => {
-                        tc.render_colored()
-                    }
-                    (Format::MarkdownColored, TranslationData::ToEnglish(te)) => {
-                        te.render_colored()
-                    }
-                    (Format::Markdown, TranslationData::ToChinese(tc)) => tc.render_plain(),
-                    (Format::Markdown, TranslationData::ToEnglish(te)) => te.render_plain(),
+                let output = match self.format {
+                    Format::MarkdownColored => result.data.render_colored(),
+                    Format::Markdown => result.data.render_plain(),
                     _ => unreachable!(),
                 };
 

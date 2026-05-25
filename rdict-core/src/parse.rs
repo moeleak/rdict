@@ -54,6 +54,24 @@ pub enum TranslationData {
     NotFound(NotFound),
 }
 
+impl TranslationData {
+    fn as_render(&self) -> &dyn crate::render::Render {
+        match self {
+            TranslationData::ToChinese(x) => x,
+            TranslationData::ToEnglish(x) => x,
+            TranslationData::NotFound(x) => x,
+        }
+    }
+
+    pub fn render_colored(&self) -> String {
+        self.as_render().render_colored()
+    }
+
+    pub fn render_plain(&self) -> String {
+        self.as_render().render_plain()
+    }
+}
+
 macro_rules! selector {
     ($css:expr) => {
         // Selectors are parsed at runtime...
@@ -84,7 +102,7 @@ pub mod selectors {
 pub struct DictPage<'a>(ElementRef<'a>);
 
 impl<'a> DictPage<'a> {
-    #[must_use] 
+    #[must_use]
     pub const fn new(element: ElementRef<'a>) -> Self {
         Self(element)
     }
