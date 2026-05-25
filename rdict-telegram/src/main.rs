@@ -52,7 +52,7 @@ async fn handle_command(bot: Bot, msg: Message, cmd: Command, client: Arc<Rdict>
 
         Command::Translate(text) => {
             let result = client
-                .get_results(&text)
+                .get_results(&text, rdict_core::model::Language::English)
                 .await
                 .context("Failed to get translation results")?;
 

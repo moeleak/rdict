@@ -1,0 +1,112 @@
+use crate::parse::fr;
+use crate::render::{Render, colors};
+use owo_colors::OwoColorize;
+use std::fmt::Write;
+
+impl Render for fr::ToChinese {
+    fn render_colored(&self) -> String {
+        let mut output = String::new();
+
+        if let Some(ph) = &self.pronunciation {
+            writeln!(output, "{}", "# Pronunciation".style(colors::MUTED)).unwrap();
+            writeln!(output, "[{}]", ph.style(colors::PRIMARY)).unwrap();
+            writeln!(output).unwrap();
+        }
+
+        if !self.meanings.is_empty() {
+            writeln!(output, "{}", "# Meanings".style(colors::MUTED)).unwrap();
+            for m in &self.meanings {
+                writeln!(output, "* {}", m.style(colors::PRIMARY)).unwrap();
+            }
+            writeln!(output).unwrap();
+        }
+
+        if !self.examples.is_empty() {
+            writeln!(output, "{}", "# Examples".style(colors::MUTED)).unwrap();
+            for ex in &self.examples {
+                writeln!(output, "* {}", ex.fr.style(colors::PRIMARY)).unwrap();
+                writeln!(output, "  {}", ex.zh.style(colors::SECONDARY)).unwrap();
+            }
+            writeln!(output).unwrap();
+        }
+
+        output.trim_end().to_string()
+    }
+
+    fn render_plain(&self) -> String {
+        let mut output = String::new();
+
+        if let Some(ph) = &self.pronunciation {
+            writeln!(output, "# Pronunciation").unwrap();
+            writeln!(output, "[{ph}]").unwrap();
+            writeln!(output).unwrap();
+        }
+
+        if !self.meanings.is_empty() {
+            writeln!(output, "# Meanings").unwrap();
+            for m in &self.meanings {
+                writeln!(output, "* {m}").unwrap();
+            }
+            writeln!(output).unwrap();
+        }
+
+        if !self.examples.is_empty() {
+            writeln!(output, "# Examples").unwrap();
+            for ex in &self.examples {
+                writeln!(output, "* {}", ex.fr).unwrap();
+                writeln!(output, "  {}", ex.zh).unwrap();
+            }
+            writeln!(output).unwrap();
+        }
+
+        output.trim_end().to_string()
+    }
+}
+
+impl Render for fr::ToFrench {
+    fn render_colored(&self) -> String {
+        let mut output = String::new();
+
+        if !self.meanings.is_empty() {
+            writeln!(output, "{}", "# Meanings".style(colors::MUTED)).unwrap();
+            for m in &self.meanings {
+                writeln!(output, "* {}", m.style(colors::PRIMARY)).unwrap();
+            }
+            writeln!(output).unwrap();
+        }
+
+        if !self.examples.is_empty() {
+            writeln!(output, "{}", "# Examples".style(colors::MUTED)).unwrap();
+            for ex in &self.examples {
+                writeln!(output, "* {}", ex.fr.style(colors::PRIMARY)).unwrap();
+                writeln!(output, "  {}", ex.zh.style(colors::SECONDARY)).unwrap();
+            }
+            writeln!(output).unwrap();
+        }
+
+        output.trim_end().to_string()
+    }
+
+    fn render_plain(&self) -> String {
+        let mut output = String::new();
+
+        if !self.meanings.is_empty() {
+            writeln!(output, "# Meanings").unwrap();
+            for m in &self.meanings {
+                writeln!(output, "* {m}").unwrap();
+            }
+            writeln!(output).unwrap();
+        }
+
+        if !self.examples.is_empty() {
+            writeln!(output, "# Examples").unwrap();
+            for ex in &self.examples {
+                writeln!(output, "* {}", ex.fr).unwrap();
+                writeln!(output, "  {}", ex.zh).unwrap();
+            }
+            writeln!(output).unwrap();
+        }
+
+        output.trim_end().to_string()
+    }
+}
