@@ -6,7 +6,7 @@ use iced::font;
 use iced::widget::{button, column, container, row, rule, scrollable, space, text, text_input};
 use iced::window::Settings;
 use iced::{Alignment, Element, Font, Length, Size, Task};
-use rdict_core::parse::TranslationData;
+use rdict_core::rdict::TranslationData;
 use rdict_core::rdict::{FetchedResult, Rdict};
 
 #[derive(Default)]
