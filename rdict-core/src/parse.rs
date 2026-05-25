@@ -1,5 +1,5 @@
-use crate::model::{Example, Meaning, ToChinese, ToEnglish, NotFound};
 use crate::Error;
+use crate::model::{Example, Meaning, NotFound, ToChinese, ToEnglish};
 use scraper::{ElementRef, Selector};
 
 macro_rules! selector {

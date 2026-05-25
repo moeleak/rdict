@@ -1,4 +1,33 @@
+use crate::Error;
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Script {
+    Chinese(String),
+    English(String),
+}
+
+impl Script {
+    pub fn classify(text: &str) -> Result<Self, Error> {
+        if text.is_empty() {
+            return Err(Error::EmptyInput);
+        }
+        if text
+            .chars()
+            .any(|ch| ('\u{4E00}'..='\u{9FFF}').contains(&ch))
+        {
+            Ok(Script::Chinese(text.to_owned()))
+        } else {
+            Ok(Script::English(text.to_owned()))
+        }
+    }
+
+    pub fn text(&self) -> &str {
+        match self {
+            Script::Chinese(s) | Script::English(s) => s,
+        }
+    }
+}
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Pronunciation {
