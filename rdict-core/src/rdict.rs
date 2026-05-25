@@ -1,5 +1,7 @@
 use crate::Error;
-use crate::parse::{DictPage, TranslationData, selectors};
+use crate::model::{NotFound, ToChinese, ToEnglish};
+use crate::parse::{DictPage, selectors};
+use serde::{Deserialize, Serialize};
 use log::{debug, info};
 use reqwest::Client;
 use scraper::Html;
@@ -22,6 +24,37 @@ pub struct Rdict {
 pub struct FetchedResult {
     pub data: TranslationData,
     pub is_cached: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(tag = "type", content = "data")]
+pub enum TranslationData {
+    #[serde(rename = "to_chinese")]
+    ToChinese(ToChinese),
+
+    #[serde(rename = "to_english")]
+    ToEnglish(ToEnglish),
+
+    #[serde(rename = "not_found")]
+    NotFound(NotFound),
+}
+
+impl TranslationData {
+    fn as_render(&self) -> &dyn crate::render::Render {
+        match self {
+            TranslationData::ToChinese(x) => x,
+            TranslationData::ToEnglish(x) => x,
+            TranslationData::NotFound(x) => x,
+        }
+    }
+
+    pub fn render_colored(&self) -> String {
+        self.as_render().render_colored()
+    }
+
+    pub fn render_plain(&self) -> String {
+        self.as_render().render_plain()
+    }
 }
 
 impl Rdict {
@@ -245,7 +278,7 @@ fn contains_cjk(text: &str) -> Result<bool, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse::{Example, Meaning, Pronunciation, ToChinese};
+    use crate::model::{Example, Meaning, Pronunciation, ToChinese};
     use mockito::{Matcher, Server};
 
     #[test]

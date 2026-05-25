@@ -1,4 +1,4 @@
-use crate::parse::{NotFound, ToChinese, ToEnglish, TranslationData};
+use crate::model::{NotFound, ToChinese, ToEnglish};
 use owo_colors::OwoColorize;
 use std::fmt::Write;
 
