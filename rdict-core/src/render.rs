@@ -1,10 +1,15 @@
-use crate::parse::{NotFound, ToChinese, ToEnglish};
+use crate::parse::{NotFound, ToChinese, ToEnglish, TranslationData};
 use owo_colors::OwoColorize;
 use std::fmt::Write;
 
-impl ToChinese {
-    #[must_use]
-    pub fn render_colored(&self) -> String {
+#[must_use]
+pub trait Render {
+    fn render_colored(&self) -> String;
+    fn render_plain(&self) -> String;
+}
+
+impl Render for ToChinese {
+    fn render_colored(&self) -> String {
         let mut output = String::new();
 
         if self.pronunciation.uk.is_some() || self.pronunciation.us.is_some() {
@@ -46,8 +51,7 @@ impl ToChinese {
         output.trim_end().to_string()
     }
 
-    #[must_use]
-    pub fn render_plain(&self) -> String {
+    fn render_plain(&self) -> String {
         let mut output = String::new();
 
         if self.pronunciation.uk.is_some() || self.pronunciation.us.is_some() {
@@ -90,9 +94,8 @@ impl ToChinese {
     }
 }
 
-impl ToEnglish {
-    #[must_use]
-    pub fn render_colored(&self) -> String {
+impl Render for ToEnglish {
+    fn render_colored(&self) -> String {
         let mut output = String::new();
 
         if !self.meanings.is_empty() {
@@ -115,8 +118,7 @@ impl ToEnglish {
         output.trim_end().to_string()
     }
 
-    #[must_use]
-    pub fn render_plain(&self) -> String {
+    fn render_plain(&self) -> String {
         let mut output = String::new();
 
         if !self.meanings.is_empty() {
@@ -140,34 +142,24 @@ impl ToEnglish {
     }
 }
 
-impl NotFound {
-    #[must_use]
-    pub fn render_colored(&self) -> String {
+impl Render for NotFound {
+    fn render_colored(&self) -> String {
         let mut output = String::new();
 
-        if self.suggestions.is_empty() {
-            writeln!(output, "{}", "No results found.".yellow()).unwrap();
-        } else {
-            writeln!(output, "{}", "Did you mean:".bright_black()).unwrap();
-            for suggestion in &self.suggestions {
-                writeln!(output, "* {}", suggestion.green()).unwrap();
-            }
+        writeln!(output, "{}", "Did you mean:".bright_black()).unwrap();
+        for suggestion in &self.suggestions {
+            writeln!(output, "* {}", suggestion.green()).unwrap();
         }
 
         output.trim_end().to_string()
     }
 
-    #[must_use]
-    pub fn render_plain(&self) -> String {
+    fn render_plain(&self) -> String {
         let mut output = String::new();
 
-        if self.suggestions.is_empty() {
-            writeln!(output, "No results found.").unwrap();
-        } else {
-            writeln!(output, "Did you mean:").unwrap();
-            for suggestion in &self.suggestions {
-                writeln!(output, "* {suggestion}").unwrap();
-            }
+        writeln!(output, "Did you mean:").unwrap();
+        for suggestion in &self.suggestions {
+            writeln!(output, "* {suggestion}").unwrap();
         }
 
         output.trim_end().to_string()
