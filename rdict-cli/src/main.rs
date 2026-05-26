@@ -143,7 +143,16 @@ impl App {
             spinner
         });
 
-        let result = self.client.get_results(input_text).await?;
+        let result = self
+            .client
+            .get_results(
+                input_text,
+                self.cli
+                    .language
+                    .unwrap_or(args::CliLanguage::English)
+                    .into(),
+            )
+            .await?;
 
         if let Some(spinner) = spinner {
             spinner.finish_and_clear();

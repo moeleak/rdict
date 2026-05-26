@@ -1,6 +1,7 @@
 use crate::Error;
-use crate::model::{NotFound, Script, ToChinese, ToEnglish};
-use crate::parse::{DictPage, selectors};
+use crate::model::Language;
+use crate::parse::{DictPage, NotFound, selectors};
+use crate::parse::{en, fr, ja, ko};
 use log::{debug, info};
 use reqwest::Client;
 use scraper::Html;
@@ -18,38 +19,58 @@ pub struct Rdict {
     pool: Option<SqlitePool>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FetchedResult {
     pub data: TranslationData,
     pub is_cached: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(tag = "type", content = "data")]
 pub enum TranslationData {
-    #[serde(rename = "to_chinese")]
-    ToChinese(ToChinese),
-
+    #[serde(rename = "from_english")]
+    FromEnglish(en::ToChinese),
     #[serde(rename = "to_english")]
-    ToEnglish(ToEnglish),
+    ToEnglish(en::ToEnglish),
+
+    #[serde(rename = "from_french")]
+    FromFrench(fr::ToChinese),
+    #[serde(rename = "to_french")]
+    ToFrench(fr::ToFrench),
+
+    #[serde(rename = "from_korean")]
+    FromKorean(ko::ToChinese),
+    #[serde(rename = "to_korean")]
+    ToKorean(ko::ToKorean),
+
+    #[serde(rename = "from_japanese")]
+    FromJapanese(ja::ToChinese),
+    #[serde(rename = "to_japanese")]
+    ToJapanese(ja::ToJapanese),
 
     #[serde(rename = "not_found")]
     NotFound(NotFound),
 }
-
 impl TranslationData {
     fn as_render(&self) -> &dyn crate::render::Render {
         match self {
-            TranslationData::ToChinese(x) => x,
-            TranslationData::ToEnglish(x) => x,
-            TranslationData::NotFound(x) => x,
+            Self::FromEnglish(x) => x,
+            Self::ToEnglish(x) => x,
+            Self::FromFrench(x) => x,
+            Self::ToFrench(x) => x,
+            Self::FromKorean(x) => x,
+            Self::ToKorean(x) => x,
+            Self::FromJapanese(x) => x,
+            Self::ToJapanese(x) => x,
+            Self::NotFound(x) => x,
         }
     }
-
+    #[must_use]
     pub fn render_colored(&self) -> String {
         self.as_render().render_colored()
     }
 
+    #[must_use]
     pub fn render_plain(&self) -> String {
         self.as_render().render_plain()
     }
@@ -61,8 +82,6 @@ impl Rdict {
         cache_db_path: Option<std::path::PathBuf>,
     ) -> Result<Self, Error> {
         let pool: Option<SqlitePool> = if let Some(db_path) = cache_db_path {
-            let should_init_db = !db_path.exists();
-
             if let Some(parent) = db_path.parent() {
                 fs::create_dir_all(parent)?;
             }
@@ -77,22 +96,16 @@ impl Rdict {
 
             let pool = SqlitePool::connect(db_url).await?;
 
-            if should_init_db {
-                let init_statements = [
-                    "CREATE TABLE to_english_results (
-                        text TEXT PRIMARY KEY,
-                        data TEXT NOT NULL
-                    );",
-                    "CREATE TABLE to_chinese_results (
-                        text TEXT PRIMARY KEY,
-                        data TEXT NOT NULL
-                    );",
-                ];
-
-                for statement in init_statements {
-                    sqlx::query(statement).execute(&pool).await?;
-                }
-            }
+            sqlx::query(
+                "CREATE TABLE IF NOT EXISTS cache (
+                    text TEXT NOT NULL,
+                    source_lang TEXT NOT NULL,
+                    data TEXT NOT NULL,
+                    PRIMARY KEY (text, source_lang)
+                );",
+            )
+            .execute(&pool)
+            .await?;
 
             Some(pool)
         } else {
@@ -106,22 +119,21 @@ impl Rdict {
         })
     }
 
-    pub async fn get_results(&self, input_text: &str) -> Result<FetchedResult, Error> {
-        let script = Script::classify(input_text)?;
-        debug!(
-            "Getting result. input_text: {}, script: {:?}",
-            input_text, script
-        );
+    pub async fn get_results(
+        &self,
+        input_text: &str,
+        language: Language,
+    ) -> Result<FetchedResult, Error> {
+        debug!("Getting result. input_text: {input_text}, language: {language:?}");
 
-        if let Some(result) = self.try_cache(&script).await? {
+        if let Some(result) = self.try_cache(input_text, language).await? {
             return Ok(result);
         }
 
-        let data = self.fetch_and_parse(&script).await?;
+        let data = self.fetch_and_parse(input_text, language).await?;
 
         if let Some(pool) = &self.pool {
-            let serialized = serde_json::to_string(&data)?;
-            self.write_cache(pool, &script, &serialized).await?;
+            self.write_cache(pool, input_text, language, &data).await?;
         }
 
         Ok(FetchedResult {
@@ -130,7 +142,11 @@ impl Rdict {
         })
     }
 
-    async fn try_cache(&self, script: &Script) -> Result<Option<FetchedResult>, Error> {
+    async fn try_cache(
+        &self,
+        input_text: &str,
+        language: Language,
+    ) -> Result<Option<FetchedResult>, Error> {
         let pool = match &self.pool {
             Some(p) => p,
             None => return Ok(None),
@@ -138,16 +154,9 @@ impl Rdict {
 
         debug!("Caching enabled, trying fetch data from cache.");
 
-        let table = match script {
-            Script::Chinese(_) => "to_english_results",
-            Script::English(_) => "to_chinese_results",
-        };
-
-        let select_query = format!("SELECT data FROM {table} WHERE text = ?");
-        let delete_query = format!("DELETE FROM {table} WHERE text = ?");
-
-        let row_result = sqlx::query(&select_query)
-            .bind(script.text())
+        let row_result = sqlx::query("SELECT data FROM cache WHERE text = ? AND source_lang = ?")
+            .bind(input_text)
+            .bind(language.code())
             .fetch_optional(pool)
             .await;
 
@@ -161,8 +170,9 @@ impl Rdict {
                 info!(
                     "Database error, deleting row from SQLite cache and fetching translation data again."
                 );
-                sqlx::query(&delete_query)
-                    .bind(script.text())
+                sqlx::query("DELETE FROM cache WHERE text = ? AND source_lang = ?")
+                    .bind(input_text)
+                    .bind(language.code())
                     .execute(pool)
                     .await?;
                 return Ok(None);
@@ -171,27 +181,15 @@ impl Rdict {
 
         let data_str: String = row.try_get("data")?;
 
-        let data = match script {
-            Script::Chinese(_) => match serde_json::from_str(&data_str) {
-                Ok(v) => TranslationData::ToEnglish(v),
-                Err(_) => {
-                    sqlx::query(&delete_query)
-                        .bind(script.text())
-                        .execute(pool)
-                        .await?;
-                    return Ok(None);
-                }
-            },
-            Script::English(_) => match serde_json::from_str(&data_str) {
-                Ok(v) => TranslationData::ToChinese(v),
-                Err(_) => {
-                    sqlx::query(&delete_query)
-                        .bind(script.text())
-                        .execute(pool)
-                        .await?;
-                    return Ok(None);
-                }
-            },
+        let data: TranslationData = if let Ok(v) = serde_json::from_str(&data_str) {
+            v
+        } else {
+            sqlx::query("DELETE FROM cache WHERE text = ? AND source_lang = ?")
+                .bind(input_text)
+                .bind(language.code())
+                .execute(pool)
+                .await?;
+            return Ok(None);
         };
 
         Ok(Some(FetchedResult {
@@ -200,67 +198,56 @@ impl Rdict {
         }))
     }
 
-    async fn fetch_and_parse(&self, script: &Script) -> Result<TranslationData, Error> {
-        let html = self.fetch_text_html(script.text()).await?;
+    async fn fetch_and_parse(
+        &self,
+        input_text: &str,
+        language: Language,
+    ) -> Result<TranslationData, Error> {
+        let html = self.fetch_text_html(input_text, language.code()).await?;
 
         let binding = Html::parse_document(&html);
         let dict_page = DictPage::new(
             binding
-                .select(&selectors::BODY_SELECTOR)
+                .select(&selectors::BODY)
                 .next()
                 .ok_or(Error::Parse("no .search_result-dict found".into()))?,
         );
 
-        let input = script.text();
+        match dict_page.parse_translation() {
+            Err(Error::NoTranslationResults) => {
+                Ok(TranslationData::NotFound(dict_page.not_found()?))
+            }
 
-        match script {
-            Script::Chinese(_) => match dict_page.to_english(input) {
-                Ok(t) => Ok(TranslationData::ToEnglish(t)),
-                Err(Error::NoTranslationResults) => {
-                    Ok(TranslationData::NotFound(dict_page.not_found()?))
-                }
-                Err(e) => Err(e),
-            },
-            Script::English(_) => match dict_page.to_chinese(input) {
-                Ok(t) => Ok(TranslationData::ToChinese(t)),
-                Err(Error::NoTranslationResults) => {
-                    Ok(TranslationData::NotFound(dict_page.not_found()?))
-                }
-                Err(e) => Err(e),
-            },
+            Ok(t) => Ok(t),
+            Err(e) => Err(e),
         }
     }
 
     async fn write_cache(
         &self,
         pool: &SqlitePool,
-        script: &Script,
-        data: &str,
+        input_text: &str,
+        language: Language,
+        data: &TranslationData,
     ) -> Result<(), Error> {
-        let query = match script {
-            Script::Chinese(_) => {
-                "INSERT OR REPLACE INTO to_english_results (text, data) VALUES (?, ?)"
-            }
-            Script::English(_) => {
-                "INSERT OR REPLACE INTO to_chinese_results (text, data) VALUES (?, ?)"
-            }
-        };
+        let serialized = serde_json::to_string(&data)?;
 
-        sqlx::query(query)
-            .bind(script.text())
-            .bind(data)
+        sqlx::query("INSERT OR REPLACE INTO cache (text, source_lang, data) VALUES (?, ?, ?)")
+            .bind(input_text)
+            .bind(language.code())
+            .bind(serialized)
             .execute(pool)
             .await?;
 
         Ok(())
     }
 
-    async fn fetch_text_html(&self, text: &str) -> Result<String, reqwest::Error> {
+    async fn fetch_text_html(&self, text: &str, lang: &str) -> Result<String, reqwest::Error> {
         let url = format!("{}/result", self.base_url);
         let response = self
             .client
             .get(&url)
-            .query(&[("word", text), ("lang", "en")])
+            .query(&[("word", text), ("lang", lang)])
             .header(
                 reqwest::header::USER_AGENT,
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
@@ -272,150 +259,5 @@ impl Rdict {
             .await?;
 
         Ok(response)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::model::{Example, Meaning, Pronunciation, ToChinese};
-    use mockito::{Matcher, Server};
-
-    #[test]
-    fn test_script_classify_chinese() {
-        assert_eq!(
-            Script::classify("你好").unwrap(),
-            Script::Chinese("你好".to_owned())
-        );
-    }
-
-    #[test]
-    fn test_script_classify_english() {
-        assert_eq!(
-            Script::classify("hello").unwrap(),
-            Script::English("hello".to_owned())
-        );
-    }
-
-    #[test]
-    fn test_script_classify_mixed() {
-        assert_eq!(
-            Script::classify("hello你好").unwrap(),
-            Script::Chinese("hello你好".to_owned())
-        );
-    }
-
-    #[test]
-    fn test_script_classify_empty() {
-        Script::classify("").unwrap_err();
-    }
-
-    #[test]
-    fn test_script_text() {
-        assert_eq!(Script::classify("hello").unwrap().text(), "hello");
-        assert_eq!(Script::classify("你好").unwrap().text(), "你好");
-    }
-
-    #[tokio::test]
-    #[expect(clippy::significant_drop_tightening)]
-    async fn test_fetch_text_html_success_with_mock_server() {
-        let mut server = Server::new_async().await;
-
-        let mock = server
-            .mock("GET", "/result")
-            .match_query(Matcher::AllOf(vec![
-                Matcher::UrlEncoded("word".into(), "hello".into()),
-                Matcher::UrlEncoded("lang".into(), "en".into()),
-            ]))
-            .with_status(200)
-            .with_body(include_str!("fixtures/hello_response.html"))
-            .create();
-
-        let client = Rdict::new(&server.url(), None).await.unwrap();
-
-        let html = client.fetch_text_html("hello").await.unwrap();
-        assert!(html.contains("Hello"));
-        mock.assert();
-    }
-
-    #[tokio::test]
-    async fn test_translation() {
-        let mut server = Server::new_async().await;
-
-        let mock = server
-            .mock("GET", "/result")
-            .match_query(Matcher::AllOf(vec![
-                Matcher::UrlEncoded("word".into(), "hello".into()),
-                Matcher::UrlEncoded("lang".into(), "en".into()),
-            ]))
-            .with_status(200)
-            .with_body(include_str!("fixtures/hello_response.html"))
-            .create();
-
-        let client = Rdict::new(&server.url(), None).await.unwrap();
-
-        let result = client.get_results("hello").await.unwrap();
-
-        println!("{:?}", result);
-
-        assert_eq!(
-            result,
-            FetchedResult {
-                is_cached: false,
-                data: TranslationData::ToChinese(ToChinese {
-                    input_text: "hello".to_owned(),
-                    pronunciation: Pronunciation {
-                        uk: Some("həˈləʊ".to_owned()),
-                        us: Some("həˈloʊ".to_owned()),
-                    },
-                    meanings: vec![
-                        Meaning {
-                            part_of_speech: Some("int.".to_owned()),
-                            definitions: vec![
-                                "喂，你好（用于问候或打招呼）".to_owned(),
-                                "喂，你好（打电话时的招呼语）".to_owned(),
-                                "喂，你好（引起别人注意的招呼语）".to_owned(),
-                                "<非正式>喂，嘿 (认为别人说了蠢话或分心)".to_owned(),
-                                "<英，旧>嘿（表示惊讶）".to_owned(),
-                            ],
-                        },
-                        Meaning {
-                            part_of_speech: Some("n.".to_owned()),
-                            definitions: vec![
-                                "招呼，问候".to_owned(),
-                                "（Hello）（法、印、美、俄）埃洛（人名）".to_owned(),
-                            ],
-                        },
-                        Meaning {
-                            part_of_speech: Some("v.".to_owned()),
-                            definitions: vec!["说（或大声说）“喂”".to_owned(), "打招呼".to_owned(),],
-                        },
-                    ],
-                    examples: vec![
-                        Example {
-                            en: "'Hello, Paul,' they chorused.".to_owned(),
-                            zh: "“你好，保罗。”他们齐声问候道。".to_owned(),
-                        },
-                        Example {
-                            en: "Hello, is there anybody there?".to_owned(),
-                            zh: "喂，那里有人吗？".to_owned(),
-                        },
-                        Example {
-                            en: "Hello, is Gordon there please?".to_owned(),
-                            zh: "您好，请问戈登在吗？".to_owned(),
-                        },
-                    ],
-                    exams: vec![
-                        "初中".to_owned(),
-                        "高中".to_owned(),
-                        "CET4".to_owned(),
-                        "CET6".to_owned(),
-                        "考研".to_owned()
-                    ],
-                }),
-            }
-        );
-
-        mock.assert();
     }
 }

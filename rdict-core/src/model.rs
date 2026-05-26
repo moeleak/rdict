@@ -1,69 +1,38 @@
-use crate::Error;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Script {
-    Chinese(String),
-    English(String),
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum Language {
+    #[serde(rename = "en")]
+    #[default]
+    English,
+    #[serde(rename = "fr")]
+    French,
+    #[serde(rename = "ko")]
+    Korean,
+    #[serde(rename = "ja")]
+    Japanese,
 }
 
-impl Script {
-    pub fn classify(text: &str) -> Result<Self, Error> {
-        if text.is_empty() {
-            return Err(Error::EmptyInput);
-        }
-        if text
-            .chars()
-            .any(|ch| ('\u{4E00}'..='\u{9FFF}').contains(&ch))
-        {
-            Ok(Script::Chinese(text.to_owned()))
-        } else {
-            Ok(Script::English(text.to_owned()))
-        }
-    }
-
-    pub fn text(&self) -> &str {
+impl Language {
+    #[must_use]
+    pub const fn code(&self) -> &'static str {
         match self {
-            Script::Chinese(s) | Script::English(s) => s,
+            Self::English => "en",
+            Self::French => "fr",
+            Self::Korean => "ko",
+            Self::Japanese => "ja",
         }
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub struct Pronunciation {
-    pub uk: Option<String>,
-    pub us: Option<String>,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub struct Example {
-    pub en: String,
-    pub zh: String,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub struct Meaning {
-    pub part_of_speech: Option<String>,
-    pub definitions: Vec<String>,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub struct ToChinese {
-    pub input_text: String,
-    pub pronunciation: Pronunciation,
-    pub meanings: Vec<Meaning>,
-    pub examples: Vec<Example>,
-    pub exams: Vec<String>,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub struct ToEnglish {
-    pub input_text: String,
-    pub meanings: Vec<String>,
-    pub examples: Vec<Example>,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub struct NotFound {
-    pub suggestions: Vec<String>,
+impl fmt::Display for Language {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::English => write!(f, "English"),
+            Self::French => write!(f, "French"),
+            Self::Korean => write!(f, "Korean"),
+            Self::Japanese => write!(f, "Japanese"),
+        }
+    }
 }
