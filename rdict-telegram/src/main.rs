@@ -1,8 +1,7 @@
 #![forbid(unsafe_code)]
 
 use anyhow::{Context, Result};
-use rdict_core::parse::TranslationData;
-use rdict_core::rdict::{self, Rdict};
+use rdict_core::rdict::Rdict;
 use std::sync::Arc;
 use teloxide::sugar::request::RequestReplyExt;
 use teloxide::types::ParseMode;
@@ -53,14 +52,11 @@ async fn handle_command(bot: Bot, msg: Message, cmd: Command, client: Arc<Rdict>
 
         Command::Translate(text) => {
             let result = client
-                .get_results(&text)
+                .get_results(&text, rdict_core::model::Language::English)
                 .await
                 .context("Failed to get translation results")?;
 
-            let output = match result.data {
-                TranslationData::ToChinese(tc) => rdict::render_chinese_plain(&tc),
-                TranslationData::ToEnglish(te) => rdict::render_english_plain(&te),
-            };
+            let output = result.data.render_plain();
 
             let wrapped_output = format!(
                 "<pre><code class=\"language-markdown\">{}</code></pre>",

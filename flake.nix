@@ -23,7 +23,7 @@
         };
 
         packages = {
-          inherit ((pkgs.callPackage ./package.nix { })) default rdict rdict-telegram;
+          inherit (pkgs.callPackage ./package.nix { }) default rdict rdict-telegram;
         };
       }
     );

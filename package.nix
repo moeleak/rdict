@@ -8,7 +8,7 @@
 let
   version = "0.3.0";
   src = lib.cleanSource ./.;
-  cargoHash = "sha256-DF3LxDMXkYZoZHIbt/cV98HpxKcnlS1OnxALzoiWhJA=";
+  cargoHash = "sha256-buU7xWrxkf9UHvDUZq0WRyXdKJMrQPUQxYm2xKdfegQ=";
 in
 rec {
   default = rdict;
@@ -54,4 +54,6 @@ rec {
       mainProgram = "rdict-telegram";
     };
   };
+
+  # TODO: rdict-iced
 }

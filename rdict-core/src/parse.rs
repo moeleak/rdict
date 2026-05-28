@@ -1,50 +1,30 @@
-use crate::Error;
-use scraper::{Html, Selector};
+pub mod en;
+pub mod example;
+pub mod fr;
+pub mod ja;
+pub mod ko;
+
+use crate::{Error, parse, rdict::TranslationData};
+use scraper::{ElementRef, Node, Selector};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct Pronunciation {
-    pub uk: Option<String>,
-    pub us: Option<String>,
+#[must_use]
+pub fn inner_text(el: &ElementRef) -> String {
+    el.text().collect::<String>().trim().to_owned()
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct Example {
-    pub en: String,
-    pub zh: String,
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct NotFound {
+    pub suggestions: Vec<String>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct Meaning {
-    pub part_of_speech: Option<String>,
-    pub definitions: Vec<String>,
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ExamplePair {
+    pub source: String,
+    pub target: String,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct ToChinese {
-    pub input_text: String,
-    pub pronunciation: Pronunciation,
-    pub meanings: Vec<Meaning>,
-    pub examples: Vec<Example>,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct ToEnglish {
-    pub input_text: String,
-    pub meanings: Vec<String>,
-    pub examples: Vec<Example>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type", content = "data")]
-pub enum TranslationData {
-    #[serde(rename = "to_chinese")]
-    ToChinese(ToChinese),
-
-    #[serde(rename = "to_english")]
-    ToEnglish(ToEnglish),
-}
-
+#[macro_export]
 macro_rules! selector {
     ($css:expr) => {
         // Selectors are parsed at runtime...
@@ -53,156 +33,124 @@ macro_rules! selector {
 }
 
 #[rustfmt::skip]
-mod selectors {
+pub mod selectors {
+    use super::Selector;
     use std::sync::LazyLock;
 
-    use super::Selector;
-
-    pub static BODY_SELECTOR:                   LazyLock<Selector> = selector!(".search_result-dict");
-    pub static PRONUNCIATION_SELECTOR:          LazyLock<Selector> = selector!(".phone_con .per-phone .phonetic");
-    pub static MEANINGS_SELECTOR:               LazyLock<Selector> = selector!(".trans-container .basic .word-exp");
-    pub static DEFINITIONS_SELECTOR:            LazyLock<Selector> = selector!(".trans");
-    pub static PART_OF_SPEECH_SELECTOR:         LazyLock<Selector> = selector!(".pos");
-    pub static EXAMPLE_SELECTOR:                LazyLock<Selector> = selector!(".trans-container .mcols-layout .col2");
-    pub static EN_SELECTOR:                     LazyLock<Selector> = selector!(".sen-eng");
-    pub static ZH_SELECTOR:                     LazyLock<Selector> = selector!(".sen-ch");
-    pub static TO_ENGLISH_TRANSLATION_SELECTOR: LazyLock<Selector> = selector!(".trans-container .basic .col2 .point");
+    pub static BODY:            LazyLock<Selector> = selector!("div.search_result-dict");
+    pub static MAYBE:           LazyLock<Selector> = selector!("div.maybe");
+    pub static MAYBE_WORD:      LazyLock<Selector> = selector!("div.maybe_word a.point");
+    pub static DIRECTION_JC:    LazyLock<Selector> = selector!("div.page.newjc");
+    pub static DIRECTION:       LazyLock<Selector> = selector!("div.dict-module");
 }
 
-/// Parses English, returns Chinese
-pub fn to_chinese(input_text: &str, html: &str) -> std::result::Result<ToChinese, Error> {
-    let binding = Html::parse_document(html);
-    let document = binding
-        .select(&selectors::BODY_SELECTOR)
-        .next()
-        .ok_or(Error::Parse("no .search_result-dict found".into()))?;
+pub struct DictPage<'a>(ElementRef<'a>);
 
-    let mut result = ToChinese {
-        input_text: input_text.to_owned(),
-        ..Default::default()
-    };
-
-    for (i, element) in document
-        .select(&selectors::PRONUNCIATION_SELECTOR)
-        .take(2)
-        .enumerate()
-    {
-        let text = element
-            .text()
-            .collect::<String>()
-            .trim_matches('/')
-            .trim()
-            .to_owned();
-
-        let text = if text.is_empty() { None } else { Some(text) };
-
-        match i {
-            0 => result.pronunciation.uk = text,
-            1 => result.pronunciation.us = text,
-            _ => unreachable!(),
-        }
+impl<'a> DictPage<'a> {
+    #[must_use]
+    pub const fn new(element: ElementRef<'a>) -> Self {
+        Self(element)
     }
 
-    for element in document.select(&selectors::MEANINGS_SELECTOR) {
-        let part_of_speech = element
-            .select(&selectors::PART_OF_SPEECH_SELECTOR)
+    #[must_use]
+    pub fn child_text(&self, selector: &Selector) -> String {
+        self.0
+            .select(selector)
             .next()
-            .map(|e| e.text().collect::<String>().trim().to_owned());
-
-        let definitions: Vec<String> = element
-            .select(&selectors::DEFINITIONS_SELECTOR)
-            .next()
-            .map(|e| {
-                e.text()
+            .map(|el| {
+                el.children()
+                    .filter_map(|child| {
+                        if let Node::Text(text_node) = child.value() {
+                            Some::<&str>(text_node.as_ref())
+                        } else {
+                            None
+                        }
+                    })
                     .collect::<String>()
                     .trim()
-                    .split('；')
-                    .map(|s| s.trim().to_owned())
-                    .collect()
+                    .to_owned()
             })
-            .unwrap_or_default();
+            .unwrap_or_default()
+    }
 
-        if part_of_speech.is_some() || !definitions.is_empty() {
-            result.meanings.push(Meaning {
-                part_of_speech,
-                definitions,
-            });
+    pub fn not_found(&self) -> std::result::Result<NotFound, Error> {
+        let mut suggestions = Vec::new();
+
+        if let Some(container) = self.0.select(&selectors::MAYBE).next() {
+            for anchor in container.select(&selectors::MAYBE_WORD) {
+                let suggestion_text = inner_text(&anchor);
+
+                if !suggestion_text.is_empty() {
+                    suggestions.push(suggestion_text);
+                }
+            }
+        }
+
+        if !suggestions.is_empty() {
+            return Ok(NotFound { suggestions });
+        }
+
+        Err(Error::NoTranslationResults)
+    }
+
+    pub fn parse_translation_direction(&self) -> Result<TranslationData, Error> {
+        // ja -> zh uses a distinct page layout class
+        if self.0.select(&selectors::DIRECTION_JC).next().is_some() {
+            return Ok(TranslationData::FromJapanese(
+                parse::ja::JapaneseParser::to_chinese(self)?,
+            ));
+        }
+
+        let target_direction = self.0.select(&selectors::DIRECTION).find_map(|el| {
+            let directions = ["ec", "ce", "fc", "cf", "kc", "ck", "cj"];
+
+            directions.into_iter().find(|&dir| {
+                el.value()
+                    .has_class(dir, scraper::CaseSensitivity::AsciiCaseInsensitive)
+            })
+        });
+
+        match target_direction {
+            Some("ec") => Ok(TranslationData::FromEnglish(
+                parse::en::EnglishParser::to_chinese(self)?,
+            )),
+            Some("ce") => Ok(TranslationData::ToEnglish(
+                parse::en::EnglishParser::to_english(self)?,
+            )),
+            Some("fc") => Ok(TranslationData::FromFrench(
+                parse::fr::FrenchParser::to_chinese(self)?,
+            )),
+            Some("cf") => Ok(TranslationData::ToFrench(
+                parse::fr::FrenchParser::to_french(self)?,
+            )),
+            Some("kc") => Ok(TranslationData::FromKorean(
+                parse::ko::KoreanParser::to_chinese(self)?,
+            )),
+            Some("ck") => Ok(TranslationData::ToKorean(
+                parse::ko::KoreanParser::to_korean(self)?,
+            )),
+            Some("cj") => Ok(TranslationData::ToJapanese(
+                parse::ja::JapaneseParser::to_japanese(self)?,
+            )),
+            _ => Err(Error::NoTranslationResults),
         }
     }
-
-    // Example sentences
-    for element in document.select(&selectors::EXAMPLE_SELECTOR) {
-        let en = element
-            .select(&selectors::EN_SELECTOR)
-            .next()
-            .map(|e| e.text().collect::<String>().trim().to_owned())
-            .unwrap_or_default();
-
-        let zh = element
-            .select(&selectors::ZH_SELECTOR)
-            .next()
-            .map(|e| e.text().collect::<String>().trim().to_owned())
-            .unwrap_or_default();
-
-        if !en.is_empty() || !zh.is_empty() {
-            result.examples.push(Example { en, zh });
-        }
-    }
-
-    if result.examples.is_empty()
-        && result.meanings.is_empty()
-        && result.pronunciation.uk.is_none()
-        && result.pronunciation.us.is_none()
-    {
-        return Err(Error::NoTranslationResults);
-    }
-
-    Ok(result)
 }
 
-/// Parses Chinese, returns English
-pub fn to_english(input_text: &str, html: &str) -> std::result::Result<ToEnglish, Error> {
-    let binding = Html::parse_document(html);
-    let document = binding
-        .select(&selectors::BODY_SELECTOR)
-        .next()
-        .ok_or(Error::Parse("no .search_result-dict found".into()))?;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parse::en::EnglishParser;
+    use scraper::Html;
 
-    let mut result = ToEnglish {
-        input_text: input_text.to_owned(),
-        ..Default::default()
-    };
+    #[test]
+    fn test_parse_translation_direction() {
+        let doc = Html::parse_document(include_str!("./fixtures/where_ec.html"));
+        let dp = DictPage::new(doc.select(&crate::parse::selectors::BODY).next().unwrap());
 
-    // Meanings
-    for element in document.select(&selectors::TO_ENGLISH_TRANSLATION_SELECTOR) {
-        let text = element.text().collect::<String>().trim().to_owned();
-        if !text.is_empty() {
-            result.meanings.push(text);
-        }
+        assert_eq!(
+            dp.parse_translation_direction().unwrap(),
+            TranslationData::FromEnglish(<DictPage as EnglishParser>::to_chinese(&dp).unwrap())
+        )
     }
-
-    // Example sentences
-    for element in document.select(&selectors::EXAMPLE_SELECTOR) {
-        let en = element
-            .select(&selectors::EN_SELECTOR)
-            .next()
-            .map(|el| el.text().collect::<String>().trim().to_owned())
-            .unwrap_or_default();
-
-        let zh = element
-            .select(&selectors::ZH_SELECTOR)
-            .next()
-            .map(|el| el.text().collect::<String>().trim().to_owned())
-            .unwrap_or_default();
-
-        if !en.is_empty() || !zh.is_empty() {
-            result.examples.push(Example { en, zh });
-        }
-    }
-
-    if result.examples.is_empty() && result.meanings.is_empty() {
-        return Err(Error::NoTranslationResults);
-    }
-
-    Ok(result)
 }

@@ -11,8 +11,7 @@ use directories_next::ProjectDirs;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::info;
 use owo_colors::OwoColorize;
-use rdict_core::parse::TranslationData;
-use rdict_core::rdict::{self, Format, Rdict};
+use rdict_core::rdict::Rdict;
 use rustyline::DefaultEditor;
 use std::env;
 use std::io::{self, IsTerminal, Read};
@@ -26,6 +25,16 @@ struct App {
     client: Rdict,
     /// Command-line arguments handled by `clap`
     cli: Args,
+}
+
+#[derive(Debug)]
+enum Format {
+    /// Markdown with ANSI color escape sequences
+    MarkdownColored,
+    /// Plain Markdown
+    Markdown,
+    /// Formatted JSON
+    Json,
 }
 
 impl App {
@@ -134,7 +143,16 @@ impl App {
             spinner
         });
 
-        let result = self.client.get_results(input_text).await?;
+        let result = self
+            .client
+            .get_results(
+                input_text,
+                self.cli
+                    .language
+                    .unwrap_or(args::CliLanguage::English)
+                    .into(),
+            )
+            .await?;
 
         if let Some(spinner) = spinner {
             spinner.finish_and_clear();
@@ -142,19 +160,9 @@ impl App {
 
         match self.format {
             Format::MarkdownColored | Format::Markdown => {
-                let output = match (&self.format, &result.data) {
-                    (Format::MarkdownColored, TranslationData::ToChinese(tc)) => {
-                        rdict::render_chinese_colored(tc)
-                    }
-                    (Format::MarkdownColored, TranslationData::ToEnglish(te)) => {
-                        rdict::render_english_colored(te)
-                    }
-                    (Format::Markdown, TranslationData::ToChinese(tc)) => {
-                        rdict::render_chinese_plain(tc)
-                    }
-                    (Format::Markdown, TranslationData::ToEnglish(te)) => {
-                        rdict::render_english_plain(te)
-                    }
+                let output = match self.format {
+                    Format::MarkdownColored => result.data.render_colored(),
+                    Format::Markdown => result.data.render_plain(),
                     _ => unreachable!(),
                 };
 
