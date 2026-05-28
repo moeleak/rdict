@@ -7,6 +7,9 @@ impl Render for en::ToChinese {
     fn render_colored(&self) -> String {
         let mut output = String::new();
 
+        writeln!(output, "{}", &self.input_text.bold()).unwrap();
+        writeln!(output).unwrap();
+
         if self.pronunciation.uk.is_some() || self.pronunciation.us.is_some() {
             writeln!(output, "{}", "# Pronunciation".style(colors::MUTED)).unwrap();
 
@@ -48,6 +51,9 @@ impl Render for en::ToChinese {
 
     fn render_plain(&self) -> String {
         let mut output = String::new();
+
+        writeln!(output, "{}", &self.input_text).unwrap();
+        writeln!(output).unwrap();
 
         if self.pronunciation.uk.is_some() || self.pronunciation.us.is_some() {
             writeln!(output, "# Pronunciation").unwrap();
@@ -93,6 +99,9 @@ impl Render for en::ToEnglish {
     fn render_colored(&self) -> String {
         let mut output = String::new();
 
+        writeln!(output, "{}", &self.input_text.bold()).unwrap();
+        writeln!(output).unwrap();
+
         if !self.meanings.is_empty() {
             writeln!(output, "{}", "# Meanings".style(colors::MUTED)).unwrap();
             for me in &self.meanings {
@@ -115,6 +124,9 @@ impl Render for en::ToEnglish {
 
     fn render_plain(&self) -> String {
         let mut output = String::new();
+
+        writeln!(output, "{}", &self.input_text).unwrap();
+        writeln!(output).unwrap();
 
         if !self.meanings.is_empty() {
             writeln!(output, "# Meanings").unwrap();

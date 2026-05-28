@@ -7,6 +7,9 @@ impl Render for ja::ToChinese {
     fn render_colored(&self) -> String {
         let mut output = String::new();
 
+        writeln!(output, "{}", &self.input_text.bold()).unwrap();
+        writeln!(output).unwrap();
+
         if let Some(pr) = &self.pronunciation {
             writeln!(output, "{}", "# Pronunciation".style(colors::MUTED)).unwrap();
             writeln!(
@@ -53,6 +56,9 @@ impl Render for ja::ToChinese {
     fn render_plain(&self) -> String {
         let mut output = String::new();
 
+        writeln!(output, "{}", &self.input_text).unwrap();
+        writeln!(output).unwrap();
+
         if let Some(pr) = &self.pronunciation {
             writeln!(output, "# Pronunciation").unwrap();
             writeln!(output, "[{} | {}]", pr.kana, pr.romaji).unwrap();
@@ -95,6 +101,9 @@ impl Render for ja::ToJapanese {
     fn render_colored(&self) -> String {
         let mut output = String::new();
 
+        writeln!(output, "{}", &self.input_text.bold()).unwrap();
+        writeln!(output).unwrap();
+
         if !self.meanings.is_empty() {
             writeln!(output, "{}", "# Meanings".style(colors::MUTED)).unwrap();
             for m in &self.meanings {
@@ -120,6 +129,9 @@ impl Render for ja::ToJapanese {
 
     fn render_plain(&self) -> String {
         let mut output = String::new();
+
+        writeln!(output, "{}", &self.input_text).unwrap();
+        writeln!(output).unwrap();
 
         if !self.meanings.is_empty() {
             writeln!(output, "# Meanings").unwrap();

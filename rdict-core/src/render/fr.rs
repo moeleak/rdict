@@ -7,6 +7,9 @@ impl Render for fr::ToChinese {
     fn render_colored(&self) -> String {
         let mut output = String::new();
 
+        writeln!(output, "{}", &self.input_text.bold()).unwrap();
+        writeln!(output).unwrap();
+
         if let Some(ph) = &self.pronunciation {
             writeln!(output, "{}", "# Pronunciation".style(colors::MUTED)).unwrap();
             writeln!(output, "[{}]", ph.style(colors::PRIMARY)).unwrap();
@@ -35,6 +38,9 @@ impl Render for fr::ToChinese {
 
     fn render_plain(&self) -> String {
         let mut output = String::new();
+
+        writeln!(output, "{}", &self.input_text).unwrap();
+        writeln!(output).unwrap();
 
         if let Some(ph) = &self.pronunciation {
             writeln!(output, "# Pronunciation").unwrap();
@@ -67,6 +73,9 @@ impl Render for fr::ToFrench {
     fn render_colored(&self) -> String {
         let mut output = String::new();
 
+        writeln!(output, "{}", &self.input_text.bold()).unwrap();
+        writeln!(output).unwrap();
+
         if !self.meanings.is_empty() {
             writeln!(output, "{}", "# Meanings".style(colors::MUTED)).unwrap();
             for m in &self.meanings {
@@ -89,6 +98,9 @@ impl Render for fr::ToFrench {
 
     fn render_plain(&self) -> String {
         let mut output = String::new();
+
+        writeln!(output, "{}", &self.input_text).unwrap();
+        writeln!(output).unwrap();
 
         if !self.meanings.is_empty() {
             writeln!(output, "# Meanings").unwrap();

@@ -7,6 +7,9 @@ impl Render for ko::ToChinese {
     fn render_colored(&self) -> String {
         let mut output = String::new();
 
+        writeln!(output, "{}", &self.input_text.bold()).unwrap();
+        writeln!(output).unwrap();
+
         if !self.meanings.is_empty() {
             writeln!(output, "{}", "# Meanings".style(colors::MUTED)).unwrap();
             for m in &self.meanings {
@@ -29,6 +32,9 @@ impl Render for ko::ToChinese {
 
     fn render_plain(&self) -> String {
         let mut output = String::new();
+
+        writeln!(output, "{}", &self.input_text).unwrap();
+        writeln!(output).unwrap();
 
         if !self.meanings.is_empty() {
             writeln!(output, "# Meanings").unwrap();
@@ -54,6 +60,9 @@ impl Render for ko::ToChinese {
 impl Render for ko::ToKorean {
     fn render_colored(&self) -> String {
         let mut output = String::new();
+
+        writeln!(output, "{}", &self.input_text.bold()).unwrap();
+        writeln!(output).unwrap();
 
         if !self.meanings.is_empty() {
             writeln!(output, "{}", "# Meanings".style(colors::MUTED)).unwrap();
@@ -82,6 +91,9 @@ impl Render for ko::ToKorean {
 
     fn render_plain(&self) -> String {
         let mut output = String::new();
+
+        writeln!(output, "{}", &self.input_text).unwrap();
+        writeln!(output).unwrap();
 
         if !self.meanings.is_empty() {
             writeln!(output, "# Meanings").unwrap();
