@@ -9,7 +9,13 @@
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        pkgs = import nixpkgs {
+          inherit system;
+          config = {
+            allowUnfree = true;
+            android_sdk.accept_license = true;
+          };
+        };
         windowsPkgs = pkgs.pkgsCross.mingwW64;
         nativePackages = pkgs.callPackage ./package.nix { };
         windowsPackages = windowsPkgs.callPackage ./package.nix { };
@@ -26,7 +32,7 @@
         };
 
         packages = {
-          inherit (nativePackages) default rdict rdict-telegram rdict-iced;
+          inherit (nativePackages) default rdict rdict-telegram rdict-iced rdict-iced-android;
           rdict-iced-windows = windowsPackages.rdict-iced;
         };
       }

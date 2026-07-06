@@ -12,13 +12,47 @@ readme.workspace = true
 name = "rdict-iced"
 path = "src/main.rs"
 
+[lib]
+name = "rdict_iced"
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
 [dependencies]
 anyhow = "1.0.98"
-iced = { version = "0.14.0", features = ["tokio"] }
-iced_material = { git = "https://github.com/moeleak/iced_material", rev = "1a8fd72a71c33b198a785133febc9792f55b3a62" }
+iced = { version = "0.14.0", default-features = false, features = ["tokio", "wgpu"] }
+iced_material = { git = "https://github.com/moeleak/iced_material", rev = "6670c79073ec2d04f8e606f136c4d82ddd60d68f" }
 tokio = "1.46.0"
 rdict_core = { path = "../rdict-core" }
 directories-next = "2.0.0"
 dark-light = "2.0.0"
 rodio = "0.22.2"
 winapi = { version = "0.3.9", features = ["wincon"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+iced_winit = { version = "0.14.0", default-features = false }
+jni = "0.22.4"
+winit = { version = "0.30.13", default-features = false, features = ["android-native-activity"] }
+
+[package.metadata.android]
+package = "io.github.guanran928.rdict"
+apk_name = "rdict-iced"
+build_targets = ["aarch64-linux-android"]
+resources = "res"
+strip = "strip"
+
+[package.metadata.android.sdk]
+min_sdk_version = 26
+target_sdk_version = 35
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.INTERNET"
+
+[package.metadata.android.application]
+label = "Rdict"
+theme = "@style/RdictTheme"
+has_code = false
+
+[package.metadata.android.application.activity]
+label = "Rdict"
+config_changes = "orientation|keyboardHidden|screenSize"
+exported = true

@@ -1,0 +1,10 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -92,6 +92,7 @@
+
+ [dependencies.iced]
+ version = "0.14"
++default-features = false
+
+ [dependencies.iced_selection]
+ version = "0.5"

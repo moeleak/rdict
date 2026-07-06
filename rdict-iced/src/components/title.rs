@@ -13,6 +13,13 @@ pub fn title(input_text: &str) -> material::Element<'_, Message> {
 }
 
 fn title_font(input_text: &str) -> Font {
+    if cfg!(target_os = "android") && material::fonts::contains_cjk(input_text) {
+        return Font {
+            weight: Weight::Bold,
+            ..Font::default()
+        };
+    }
+
     let cjk_family = if contains_japanese_kana(input_text) {
         Some(system_japanese_font())
     } else if contains_hangul(input_text) {
