@@ -1,37 +1,44 @@
 use iced::font;
 use iced::widget::{column, container, row, scrollable, text};
-use iced::{Font, Length};
+use iced::{Alignment, Font, Length, alignment};
 use iced_material as material;
+use rdict_core::model::Voice;
 use rdict_core::parse::en::{ToChinese, ToEnglish};
 
 use crate::{
     Message,
     components::{comparison, list_item, section, title},
+    render,
 };
 
-pub fn to_chinese(tc: &ToChinese) -> material::Element<'_, Message> {
+pub fn to_chinese<'a>(tc: &'a ToChinese, voices: &'a [Voice]) -> material::Element<'a, Message> {
     // Pronunciation Layout
 
-    let build_accent = |label: &'static str, value: &str| {
+    let build_accent = |label: &'static str, value: &str, voice: Option<&Voice>| {
         row![
-            text(label).font(Font {
+            container(text(label).font(Font {
                 weight: font::Weight::Bold,
                 ..Font::default()
-            }),
-            " ",
-            text(format!("[{value}]")).style(material::text::surface_variant)
+            }))
+            .width(Length::Fixed(20.0))
+            .height(Length::Fixed(render::PRONUNCIATION_HEIGHT))
+            .align_x(alignment::Horizontal::Right)
+            .align_y(alignment::Vertical::Center),
+            render::pronunciation(value.to_owned(), voice)
         ]
+        .spacing(0)
+        .align_y(Alignment::Center)
     };
 
     let mut accents = Vec::new();
     if let Some(uk) = &tc.pronunciation.uk {
-        accents.push(build_accent("英", uk).into());
+        accents.push(build_accent("英", uk, voices.first()).into());
     }
     if let Some(us) = &tc.pronunciation.us {
-        accents.push(build_accent("美", us).into());
+        accents.push(build_accent("美", us, voices.get(1)).into());
     }
 
-    let pronunciation_col = (!accents.is_empty()).then(|| row(accents).spacing(15));
+    let pronunciation_col = (!accents.is_empty()).then(|| row(accents).spacing(12));
 
     // Meanings Layout
     let meanings_col = if tc.meanings.is_empty() {
@@ -82,16 +89,12 @@ pub fn to_chinese(tc: &ToChinese) -> material::Element<'_, Message> {
         Some(section("Exams", children))
     };
 
+    let header_col = column![title(&tc.input_text), pronunciation_col].spacing(8);
+
     scrollable(
-        column![
-            title(&tc.input_text),
-            pronunciation_col,
-            meanings_col,
-            examples_col,
-            exams_col,
-        ]
-        .spacing(20)
-        .padding(10),
+        column![header_col, meanings_col, examples_col, exams_col]
+            .spacing(14)
+            .padding(10),
     )
     .width(Length::Fill)
     .height(Length::Fill)

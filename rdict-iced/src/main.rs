@@ -3,6 +3,7 @@
 mod components;
 mod render;
 
+use anyhow::Result as AnyhowResult;
 use directories_next::ProjectDirs;
 use iced::font;
 use iced::time::Instant;
@@ -13,9 +14,10 @@ use iced::{Alignment, Background, Color, Font, Length, Padding, Size, Subscripti
 use iced_material as material;
 use material::widget::{button, progress_bar, select, text_input, theme_picker};
 use rdict_core::Error;
-use rdict_core::model::Language;
+use rdict_core::model::{Language, Voice};
 use rdict_core::rdict::TranslationData;
 use rdict_core::rdict::{FetchedResult, Rdict};
+use std::io::Cursor;
 use std::sync::Arc;
 
 use crate::components::list_item;
@@ -76,6 +78,8 @@ enum Message {
     LanguageChanged(Language),
     TranslationResult(FetchedResult),
     TranslationError(String),
+    PlayVoice(Voice),
+    VoicePlayed(Result<(), String>),
     ThemeChanged(theme_picker::ThemeAction),
     WindowResized(Size),
     Frame(Instant),
@@ -163,6 +167,23 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             state.translation_result = TranslationState::Error(err);
             Task::none()
         }
+        Message::PlayVoice(voice) => {
+            let Some(client) = state.client.clone() else {
+                return Task::none();
+            };
+
+            Task::perform(
+                async move { play_voice(client, voice).await.map_err(|e| e.to_string()) },
+                Message::VoicePlayed,
+            )
+        }
+        Message::VoicePlayed(result) => {
+            if let Err(error) = result {
+                eprintln!("Voice playback failed: {error}");
+            }
+
+            Task::none()
+        }
         Message::ThemeChanged(action) => {
             state.theme_controller.update(
                 action,
@@ -229,13 +250,13 @@ fn view(state: &State) -> material::Element<'_, Message> {
         .into(),
 
         TranslationState::Translation(fetched_result) => match &fetched_result.data {
-            TranslationData::FromEnglish(tc) => render::en::to_chinese(tc),
+            TranslationData::FromEnglish(tc) => render::en::to_chinese(tc, &fetched_result.voices),
             TranslationData::ToEnglish(te) => render::en::to_english(te),
-            TranslationData::FromFrench(tc) => render::fr::to_chinese(tc),
+            TranslationData::FromFrench(tc) => render::fr::to_chinese(tc, &fetched_result.voices),
             TranslationData::ToFrench(te) => render::fr::to_french(te),
             TranslationData::FromKorean(tc) => render::ko::to_chinese(tc),
             TranslationData::ToKorean(te) => render::ko::to_korean(te),
-            TranslationData::FromJapanese(tc) => render::ja::to_chinese(tc),
+            TranslationData::FromJapanese(tc) => render::ja::to_chinese(tc, &fetched_result.voices),
             TranslationData::ToJapanese(te) => render::ja::to_japanese(te),
 
             TranslationData::NotFound(nf) => {
@@ -483,4 +504,21 @@ async fn fetch_translation(
     language: Language,
 ) -> Result<FetchedResult, Error> {
     client.get_results(&text_input_content, language).await
+}
+
+async fn play_voice(client: Arc<Rdict>, voice: Voice) -> AnyhowResult<()> {
+    let bytes = client.fetch_voice(&voice).await?;
+
+    tokio::task::spawn_blocking(move || -> AnyhowResult<()> {
+        let mut stream = rodio::DeviceSinkBuilder::open_default_sink()?;
+        stream.log_on_drop(false);
+
+        let player = rodio::play(stream.mixer(), Cursor::new(bytes))?;
+        player.sleep_until_end();
+
+        Ok(())
+    })
+    .await??;
+
+    Ok(())
 }

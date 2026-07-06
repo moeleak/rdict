@@ -2,18 +2,21 @@ use iced::font;
 use iced::widget::{column, container, scrollable, text};
 use iced::{Font, Length};
 use iced_material as material;
+use rdict_core::model::Voice;
 use rdict_core::parse::ja::{ToChinese, ToJapanese};
 
 use crate::{
     Message,
     components::{comparison, list_item, section, title},
+    render,
 };
 
-pub fn to_chinese(tc: &ToChinese) -> material::Element<'_, Message> {
+pub fn to_chinese<'a>(tc: &'a ToChinese, voices: &'a [Voice]) -> material::Element<'a, Message> {
     let pronunciation_col = tc.pronunciation.as_ref().map(|pr| {
-        container(
-            text(format!("[{} | {}]", pr.kana, pr.romaji)).style(material::text::surface_variant),
-        )
+        container(render::pronunciation(
+            format!("{} | {}", pr.kana, pr.romaji),
+            voices.first(),
+        ))
         .padding([4, 8])
     });
 

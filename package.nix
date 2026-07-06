@@ -10,7 +10,7 @@
 let
   version = "0.3.0";
   src = lib.cleanSource ./.;
-  cargoHash = "sha256-HT1itjT7KQRmjPyhXmZjso5Le5P9/yXJYp26fPkykNE=";
+  cargoHash = "sha256-lOWAUT+zgqkzWPE0ZTTHTyzvxPC4Kv8CEcrRZvQKceU=";
   darwinHostLinkAttrs = lib.optionalAttrs stdenv.buildPlatform.isDarwin {
     RUSTFLAGS = "-L native=${buildPackages.libiconv}/lib";
     env.LIBRARY_PATH = "${buildPackages.libiconv}/lib";
