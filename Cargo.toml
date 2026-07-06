@@ -10,3 +10,6 @@ edition = "2024"
 repository = "https://github.com/Guanran928/rdict"
 license = "MIT"
 readme = "README.md"
+
+[profile.release]
+lto = "fat"
