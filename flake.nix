@@ -10,6 +10,9 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        windowsPkgs = pkgs.pkgsCross.mingwW64;
+        nativePackages = pkgs.callPackage ./package.nix { };
+        windowsPackages = windowsPkgs.callPackage ./package.nix { };
       in
       {
         devShells.default = pkgs.mkShell {
@@ -23,7 +26,8 @@
         };
 
         packages = {
-          inherit (pkgs.callPackage ./package.nix { }) default rdict rdict-telegram;
+          inherit (nativePackages) default rdict rdict-telegram rdict-iced;
+          rdict-iced-windows = windowsPackages.rdict-iced;
         };
       }
     );
